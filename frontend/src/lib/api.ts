@@ -18,10 +18,30 @@ import type { InsightsResponse } from './types'
  */
 const 배포_기본_백엔드 = 'https://movin-logistics-production.up.railway.app'
 
+/**
+ * 스킴이 빠진 주소를 https 로 보정한다.
+ *
+ * 실제로 Vercel 의 `VITE_API_BASE` 가 스킴 없이
+ * `movin-logistics-production.up.railway.app` 로 설정돼 있었다. 스킴이 없으면
+ * fetch 가 절대 URL 이 아니라 **상대 경로**로 읽어서
+ * `https://<프론트도메인>/movin-logistics-production.up.railway.app/api/v1/...`
+ * 을 부른다. 이 경로는 `/api/` 로 시작하지 않아 vercel.json 의 SPA 리라이트에
+ * 걸리고, index.html 이 200 + text/html 로 돌아온다. `res.ok` 가 true 라
+ * 그대로 `res.json()` 에서 터지는데 ApiError 가 아니라서 "네트워크 실패"로
+ * 분류돼, 화면이 오류 대신 폴백 목록 + 자동 재시도 배너로 조용히 떨어졌다.
+ *
+ * 값이 `/` 로 시작하면 같은 오리진을 가리키는 의도이므로 건드리지 않는다.
+ */
+function 스킴보정(base: string): string {
+  // 끝의 / 를 떼지 않으면 `${API_BASE}/v1/...` 이 `//v1/...` 이 된다.
+  const 정리 = base.replace(/\/+$/, '')
+  if (정리.startsWith('/')) return 정리
+  return /^https?:\/\//i.test(정리) ? 정리 : `https://${정리}`
+}
+
 function resolveApiBase(): string {
   const 설정값 = import.meta.env.VITE_API_BASE?.trim()
-  // 끝의 / 를 떼지 않으면 `${API_BASE}/v1/...` 이 `//v1/...` 이 된다.
-  if (설정값) return 설정값.replace(/\/+$/, '')
+  if (설정값) return 스킴보정(설정값)
   return import.meta.env.DEV ? '' : 배포_기본_백엔드
 }
 
@@ -64,6 +84,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       const serverMessage = typeof body.error?.message === 'string' ? body.error.message : null
       const requestId = typeof body.error?.requestId === 'string' ? body.error.requestId : null
       throw new ApiError(serverMessage ?? '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.', res.status, requestId)
+    }
+    // 200 인데 JSON 이 아니면 API_BASE 가 잘못 잡혀 SPA 의 index.html 을 받은 것이다.
+    // 그냥 두면 res.json() 이 SyntaxError 를 던지는데, 이건 네트워크 실패와 구분되지
+    // 않아 자동 재시도로 조용히 숨는다. 설정 오류는 눈에 띄게 실패해야 한다.
+    if (!(res.headers.get('Content-Type') ?? '').includes('json')) {
+      throw new ApiError('API 주소 설정이 잘못됐어요(JSON 이 아닌 응답).', res.status)
     }
     return await res.json() as T
   } catch (error) {
