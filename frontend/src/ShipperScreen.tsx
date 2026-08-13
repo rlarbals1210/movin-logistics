@@ -4,6 +4,7 @@ import ConditionComparison from './features/shipper/ConditionComparison'
 import PreferenceSetup from './features/shipper/PreferenceSetup'
 import ShipperProfile from './features/shipper/ShipperProfile'
 import ShipperReport from './features/shipper/ShipperReport'
+import { useShipperScenarios } from './features/shipper/useShipperScenarios'
 import {
   addDaysToDate,
   adjustedWindowLabel,
@@ -213,6 +214,7 @@ function ShipperScreen() {
   const [callForm, setCallForm] = useState<CallForm>(emptyCallForm)
   const [comparisonOptions, setComparisonOptions] = useState<ComparisonOptions>(initialComparisonOptions)
   const [decision, setDecision] = useState<DispatchDecision>(null)
+  const { scenarios, modelMetadata } = useShipperScenarios()
 
   const answeredCount = preferenceGroups.filter((group) => selections[group.id].length > 0).length
   const registrationCompletion = callFieldCompletion(callForm)
@@ -239,7 +241,7 @@ function ShipperScreen() {
 
   const continueToComparison = () => {
     if (registrationCompletion !== 6) return
-    const currentScenario = getCurrentScenario(callForm)
+    const currentScenario = getCurrentScenario(callForm, scenarios)
     setComparisonOptions((current) => ({ ...current, allowDateDelay: false, relaxedWindowMinutes: getNextRelaxedWindow(currentScenario.windowMinutes) }))
     setDecision(null)
     setActiveTab('compare')
@@ -340,6 +342,7 @@ function ShipperScreen() {
               {activeTab === 'register' && (
                 <CallRegistration
                   form={callForm}
+                  modelMetadata={modelMetadata}
                   preferencesSaved={preferencesSaved}
                   onChange={(next) => {
                     setCallForm(next)
@@ -349,11 +352,11 @@ function ShipperScreen() {
                 />
               )}
               {activeTab === 'compare' && (
-                <ConditionComparison form={callForm} options={comparisonOptions} onOptionsChange={setComparisonOptions} onDecision={chooseDecision} />
+                <ConditionComparison form={callForm} scenarios={scenarios} modelMetadata={modelMetadata} options={comparisonOptions} onOptionsChange={setComparisonOptions} onDecision={chooseDecision} />
               )}
-              {activeTab === 'report' && <ShipperReport form={callForm} options={comparisonOptions} decision={decision} />}
+              {activeTab === 'report' && <ShipperReport form={callForm} scenarios={scenarios} modelMetadata={modelMetadata} options={comparisonOptions} decision={decision} />}
               {activeTab === 'profile' && (
-                <ShipperProfile selections={selections} form={callForm} decision={decision} onEditPreferences={() => setActiveTab('settings')} />
+                <ShipperProfile selections={selections} form={callForm} modelMetadata={modelMetadata} decision={decision} onEditPreferences={() => setActiveTab('settings')} />
               )}
             </div>
             <DecisionSummary selections={selections} answeredCount={answeredCount} form={callForm} decision={decision} options={comparisonOptions} />

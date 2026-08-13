@@ -1,11 +1,12 @@
-import { modelMetadata, operationLogs, shipperReportMetrics } from './shipperData'
+import { operationLogs, shipperReportMetrics } from './shipperData'
 import { formatDate, getSelectedCargo, getSelectedLocation, getSelectedVehicle, minutesToTime } from './shipperModel'
 import { preferenceGroups, type PreferenceSelections } from './shipperPreferences'
-import type { CallForm, DispatchDecision } from './shipperTypes'
+import type { CallForm, DispatchDecision, ShipperModelMetadata } from './shipperTypes'
 
 type ShipperProfileProps = {
   selections: PreferenceSelections
   form: CallForm
+  modelMetadata: ShipperModelMetadata
   decision: DispatchDecision
   onEditPreferences: () => void
 }
@@ -16,7 +17,7 @@ function SelectionValue({ values }: { values: string[] }) {
     : <span className="font-bold text-secondary">미선택</span>
 }
 
-function ShipperProfile({ selections, form, decision, onEditPreferences }: ShipperProfileProps) {
+function ShipperProfile({ selections, form, modelMetadata, decision, onEditPreferences }: ShipperProfileProps) {
   const recentRoute = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미입력'}`
 
   return (

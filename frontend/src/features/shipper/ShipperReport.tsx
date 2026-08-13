@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { modelMetadata, operationLogs, shipperReportMetrics } from './shipperData'
+import { operationLogs, shipperReportMetrics } from './shipperData'
 import {
   formatShortCurrency,
   formatWindow,
@@ -7,10 +7,12 @@ import {
   getScenario,
   getSelectedLocation,
 } from './shipperModel'
-import type { CallForm, ComparisonOptions, DispatchDecision } from './shipperTypes'
+import type { CallForm, ComparisonOptions, DispatchDecision, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
 type ShipperReportProps = {
   form: CallForm
+  scenarios: ScenarioResult[]
+  modelMetadata: ShipperModelMetadata
   options: ComparisonOptions
   decision: DispatchDecision
 }
@@ -21,9 +23,9 @@ function decisionLabel(decision: DispatchDecision) {
   return '아직 선택하지 않음'
 }
 
-function AiSummary({ form, options, decision }: ShipperReportProps) {
-  const current = getCurrentScenario(form)
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes)
+function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
+  const current = getCurrentScenario(form, scenarios)
+  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '출발지 미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '도착지 미입력'}`
 
   const summary = decision === 'adjusted'
@@ -59,9 +61,9 @@ function StatCard({ label, value, helper, accent }: { label: string; value: stri
   )
 }
 
-function ReportContent({ form, options, decision, compact = false }: ShipperReportProps & { compact?: boolean }) {
-  const current = getCurrentScenario(form)
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes)
+function ReportContent({ form, scenarios, modelMetadata, options, decision, compact = false }: ShipperReportProps & { compact?: boolean }) {
+  const current = getCurrentScenario(form, scenarios)
+  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
   const chosen = decision === 'adjusted' ? adjusted : current
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미입력'}`
 

@@ -26,6 +26,13 @@ export type ScenarioResult = {
   failureProbability: number
 }
 
+export type ShipperModelMetadata = {
+  scenarioRows: number
+  trainingRows: number
+  acceptanceAuc: number
+  failureAuc: number
+}
+
 export type ComparisonOptions = {
   allowVehicleSubstitution: boolean
   allowDateDelay: boolean
