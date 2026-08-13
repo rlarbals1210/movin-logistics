@@ -58,7 +58,7 @@ function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
     ? `${route} 콜은 상차 시간창을 ${formatWindow(current.windowMinutes)}에서 ${formatWindow(adjusted.windowMinutes)}까지 열어 등록했습니다.${options.allowDateDelay ? ' 상차일 하루 연기를 포함한 조정안입니다.' : ''} 연결된 원본에서는 수락 가능 차주가 ${current.availableDrivers}명에서 ${adjusted.availableDrivers}명으로 변합니다. 예상 운임은 ${formatShortCurrency(current.estimatedFare)}에서 ${formatShortCurrency(adjusted.estimatedFare)}까지 낮아집니다. 차종 대체 조건은 원본 축이 없어 수치에서 제외했습니다.`
     : decision === 'current'
       ? `${route} 콜은 입력한 조건을 그대로 유지했습니다. 조건을 바꾸지 않아도 불이익은 없으며, 이번 선택은 다음 제안의 판단 근거로 기록됩니다. 현재 원본 조합의 예상 수락 가능 차주는 ${current.availableDrivers}명, 예상 운임은 ${formatShortCurrency(current.estimatedFare)}입니다.`
-      : '조건 비교에서 진행 방식을 선택하면 이번 배차 조건의 의미와 예상 결과를 화주용 문장으로 정리합니다.'
+      : '조건 비교에서 진행 방식을 선택하면 이번 배차 조건의 의미와 예상 결과를 화주/주선사용 문장으로 정리합니다.'
 
   // InsightNote(ConditionComparison.tsx)와 같은 규칙: facts 에는 화면에 이미 뜬 값만 담는다.
   const facts = useMemo(() => {
@@ -108,7 +108,7 @@ function ReportContent({ form, scenarios, modelMetadata, options, decision, comp
   return (
     <div className={compact ? 'space-y-lg' : 'space-y-xl'}>
       <div>
-        <p className="text-label-sm font-black text-primary">2026년 8월 · 화주 월간 리포트</p>
+        <p className="text-label-sm font-black text-primary">2026년 8월 · 화주/주선사 월간 리포트</p>
         <h2 className="mt-xs text-[30px] font-black tracking-[-0.03em] text-on-surface">발주 조건이 만든 운영 변화</h2>
         <p className="mt-sm text-body-md text-secondary">최근 운영 로그와 현재 탄소 감축 산정 기준을 함께 정리했습니다.</p>
       </div>
@@ -240,7 +240,7 @@ function ShipperReport(props: ShipperReportProps) {
         <div className="flex items-start justify-between gap-xl">
           <div>
             <h1 id="report-title" className="text-[32px] font-black leading-tight tracking-[-0.03em] text-on-surface">월간 리포트</h1>
-            <p className="mt-sm text-body-lg text-secondary">조건 선택 결과, 운영 성과, 탄소 감축 근거를 화주 관점에서 확인합니다.</p>
+            <p className="mt-sm text-body-lg text-secondary">조건 선택 결과, 운영 성과, 탄소 감축 근거를 화주/주선사 관점에서 확인합니다.</p>
           </div>
           <button type="button" onClick={() => setPrintOpen(true)} className="inline-flex min-h-12 items-center gap-sm rounded-full bg-on-secondary-fixed px-xl text-label-md font-black text-primary-fixed hover:bg-[#292927]">
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
