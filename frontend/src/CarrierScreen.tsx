@@ -130,16 +130,20 @@ function StickyAction({
   disabled = false,
   onClick,
   helper,
+  pending = false,
 }: {
   label: string
   disabled?: boolean
   onClick: () => void
   helper?: string
+  pending?: boolean
 }) {
   return (
     <footer className="carrier-sticky-action">
       {helper && <p>{helper}</p>}
-      <button type="button" disabled={disabled} onClick={onClick}>{label}</button>
+      <button type="button" disabled={disabled} onClick={onClick}>
+        {pending && <span className="mv-spin" aria-hidden="true" />} {label}
+      </button>
     </footer>
   )
 }
@@ -514,7 +518,7 @@ function BackhaulScreen({ candidate, loading, source, errorMessage, deciding, on
       ) : <div className="carrier-empty-call"><strong>추천 가능한 다음 콜이 없어요.</strong><p>현재 운행을 마치고 리포트로 이동할 수 있어요.</p></div>}
       {source === '폴백' && <div className="carrier-api-fallback"><p>{errorMessage || '결정론적 예시 후보를 표시하고 있어요.'}</p><button type="button" onClick={onRetry}>다시 시도</button></div>}
       <div className="carrier-backhaul-actions">
-        <button type="button" disabled={!candidate || deciding} onClick={onAccept}>{deciding ? '처리 중…' : '수락하고 다음 운행'}</button>
+        <button type="button" disabled={!candidate || deciding} onClick={onAccept}>{deciding && <span className="mv-spin" aria-hidden="true" />} {deciding ? '처리 중…' : '수락하고 다음 운행'}</button>
         <button type="button" disabled={deciding} onClick={onHome}>집으로 돌아가기</button>
       </div>
     </div>
@@ -805,7 +809,7 @@ function CarrierScreen() {
             {단계 === 6 && <BackhaulScreen candidate={후속후보[0]} loading={후속매칭.상태 === 'loading'} source={후속매칭.출처} errorMessage={후속매칭.오류메시지} deciding={확정중} onRetry={후속매칭.재시도} onAccept={복화수락} onHome={집으로돌아가기} />}
             {단계 === 7 && <ReportScreen calls={완료콜} />}
           </main>
-          {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} />}
+          {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} pending={단계 === 4 && 확정중} />}
           {단계 === 3 && 추천알림열림 && <CandidateNotification count={Math.min(3, 후보.length)} onOpen={추천알림열기} />}
           {단계 === 5 && 운행알림열림 && <CandidateNotification count={후속콜수 >= 2 ? 완료콜.length + 1 : Math.max(1, 후속후보.length)} onOpen={운행알림열기} />}
           {안내 && <div className="carrier-toast" role="status"><span>{안내}</span>{실패피드백 && <button type="button" onClick={피드백재시도}>다시 시도</button>}</div>}
