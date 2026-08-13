@@ -10,5 +10,12 @@ export default defineConfig({
     // 데모 중에 주소가 바뀌는 것보다 안 뜨는 게 낫다.
     port: 5174,
     strictPort: true,
+    // VITE_API_BASE 가 없으면 API_BASE 는 빈 문자열이라 요청이 dev 서버로 간다.
+    // 로컬 uvicorn 으로 넘겨준다 — 배포에서는 VITE_API_BASE 가 Railway 를 가리키고
+    // 이 프록시는 타지 않는다.
+    proxy: {
+      '/v1': 'http://127.0.0.1:8000',
+      '/health': 'http://127.0.0.1:8000',
+    },
   },
 })
