@@ -424,7 +424,7 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
               <strong className="text-on-surface">{completion}/6</strong>
             </div>
             <div className="mt-sm h-2 overflow-hidden rounded-full bg-surface-container-high">
-              <div className="h-full rounded-full bg-primary-container transition-[width]" style={{ width: `${Math.round(completion / 6 * 100)}%` }} />
+              <div className="h-full rounded-full bg-primary-container transition-[width] duration-300" style={{ width: `${Math.round(completion / 6 * 100)}%` }} />
             </div>
           </div>
         </div>
