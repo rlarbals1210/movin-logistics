@@ -799,7 +799,7 @@ function CarrierScreen() {
       <div className="carrier-mobile-shell">
         <div className="carrier-app">
           <AppHeader 단계={단계} onBack={이전} onMenu={() => set메뉴열림(true)} onNotice={() => showNotice('새 알림이 없습니다.')} onHelp={() => showNotice('고객센터 연결을 준비하고 있어요.')} />
-          <main className="carrier-content">
+          <main key={단계} className="carrier-content carrier-step-in">
             {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
             {단계 === 1 && <ProfileScreen />}
             {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
