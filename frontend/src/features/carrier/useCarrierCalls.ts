@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { get } from '../../lib/api'
 import { toCarrierCalls, 예시_추천콜 } from '../../lib/adapters'
 import { 확장필드, type 추천콜상세 } from './carrierTypes'
+import { 추천콜_확장기본값 } from './carrierFlowData'
 
 export type 로딩상태 = 'loading' | 'ready' | 'error'
 
@@ -43,7 +44,10 @@ function 상세로(raw: unknown): 추천콜상세[] {
     }
   }
 
-  return 기본.map((콜) => ({ ...콜, ...확장필드(원본행.get(콜.콜ID) ?? {}) }))
+  return 기본.map((콜) => ({
+    ...콜,
+    ...확장필드(원본행.get(콜.콜ID) ?? 추천콜_확장기본값[콜.콜ID] ?? {}),
+  }))
 }
 
 export function useCarrierCalls(운송인ID: string): CarrierCallsState {
