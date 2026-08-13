@@ -1673,6 +1673,7 @@ textarea:focus-visible {
 }
 
 .carrier-api-fallback p { margin: 0; font-size: 9px; line-height: 1.4; }
+.carrier-api-fallback .mv-spin { width: 9px; height: 9px; border-width: 1.5px; margin-right: 3px; }
 .carrier-api-fallback button { flex: none; padding: 7px 8px; border: 1px solid #c6a64d; border-radius: 7px; background: #fff; color: #5a4512; font-size: 9px; font-weight: 800; }
 
 .carrier-backhaul-list > button {
