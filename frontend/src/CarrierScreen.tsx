@@ -33,9 +33,7 @@ const 원 = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`
 type IconName =
   | 'back'
   | 'bell'
-  | 'headset'
   | 'chevron'
-  | 'refresh'
   | 'user'
   | 'truck'
   | 'location'
@@ -64,9 +62,7 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     switch (name) {
       case 'back': return <><path d="m15 18-6-6 6-6" /></>
       case 'bell': return <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>
-      case 'headset': return <><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><path d="M4 14h3v6H5a1 1 0 0 1-1-1v-5ZM20 14h-3v6h2a1 1 0 0 0 1-1v-5Z" /></>
       case 'chevron': return <><path d="m9 18 6-6-6-6" /></>
-      case 'refresh': return <><path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M18.5 9A7 7 0 0 0 6.2 6.5L4 9m16 6-2.2 2.5A7 7 0 0 1 5.5 15" /></>
       case 'user': return <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>
       case 'truck': return <><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" /></>
       case 'location': return <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>
@@ -86,13 +82,9 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 function AppHeader({
   단계,
   onBack,
-  onNotice,
-  onHelp,
 }: {
   단계: number
   onBack: () => void
-  onNotice: () => void
-  onHelp: () => void
 }) {
   return (
     <header className="carrier-header">
@@ -101,10 +93,6 @@ function AppHeader({
           ? <span className="carrier-appbar-spacer" aria-hidden="true" />
           : <button type="button" className="carrier-icon-button" onClick={onBack} aria-label="이전 화면"><Icon name="back" /></button>}
         <strong className="carrier-brand">Mov!n <span>운송인</span></strong>
-        <div className="carrier-appbar-actions">
-          <button type="button" className="carrier-icon-button" onClick={onNotice} aria-label="알림"><Icon name="bell" size={20} /></button>
-          <button type="button" className="carrier-icon-button" onClick={onHelp} aria-label="고객센터"><Icon name="headset" size={20} /></button>
-        </div>
       </div>
       <div className="carrier-progress-copy">
         <strong>{단계 + 1} / 8</strong>
@@ -182,15 +170,11 @@ function StartScreen({
   onToggleOrder,
   profileOpen,
   onToggleProfile,
-  refreshedAt,
-  onRefresh,
 }: {
   expandedOrder: string
   onToggleOrder: (id: string) => void
   profileOpen: boolean
   onToggleProfile: () => void
-  refreshedAt: string
-  onRefresh: () => void
 }) {
   return (
     <div className="carrier-screen carrier-start-screen">
@@ -208,8 +192,7 @@ function StartScreen({
       )}
 
       <div className="carrier-section-heading">
-        <div><h2>지금 등록된 화물</h2><small>{refreshedAt} 기준</small></div>
-        <button type="button" onClick={onRefresh}><Icon name="refresh" size={17} /> 새로고침</button>
+        <h2>지금 등록된 화물</h2>
       </div>
       <div className="carrier-order-list">
         {등록화물_목록.map((order) => (
@@ -575,7 +558,6 @@ function CarrierScreen() {
   const [운행진행률, set운행진행률] = useState(0)
   const [운행알림열림, set운행알림열림] = useState(false)
   const [안내, set안내] = useState('')
-  const [새로고침시각, set새로고침시각] = useState('방금 전')
   const [추천알림열림, set추천알림열림] = useState(false)
   const [스크롤횟수, set스크롤횟수] = useState(0)
   const [확정중, set확정중] = useState(false)
@@ -691,7 +673,7 @@ function CarrierScreen() {
     set선호조건(빈선호조건); set매칭쿼리(''); set후속쿼리(''); set선택콜ID('')
     set현재콜(undefined); set완료콜([]); set후속콜수(0); set운행진행률(0); set운행알림열림(false)
     set추천알림열림(false); set확정중(false); set확정콜ID(''); set실패피드백(null); set여정ID(crypto.randomUUID())
-    set안내(''); set새로고침시각('방금 전'); 확정잠금.current = false
+    set안내(''); 확정잠금.current = false
   }
 
   const 추천알림열기 = () => {
@@ -814,9 +796,9 @@ function CarrierScreen() {
       <div className="carrier-device-layout">
         <div className="carrier-mobile-shell">
           <div className="carrier-app">
-            <AppHeader 단계={단계} onBack={이전} onNotice={() => showNotice('새 알림이 없습니다.')} onHelp={() => showNotice('고객센터 연결을 준비하고 있어요.')} />
+            <AppHeader 단계={단계} onBack={이전} />
             <main key={단계} ref={보드컨텐츠} className="carrier-content carrier-step-in" onScroll={오더게시판스크롤}>
-              {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
+              {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} />}
               {단계 === 1 && <ProfileScreen />}
               {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
               {단계 === 3 && <OrderBoardScreen candidates={후보} loading={초기매칭.상태 === 'loading'} preferences={선호조건} source={초기매칭.출처} matchQuery={매칭쿼리} errorMessage={초기매칭.오류메시지} retrying={초기매칭.재시도중} onRetry={초기매칭.재시도} />}

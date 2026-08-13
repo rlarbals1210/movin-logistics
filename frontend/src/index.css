@@ -192,7 +192,7 @@ textarea:focus-visible {
 
 .carrier-appbar {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: 44px 1fr;
   align-items: center;
   min-height: 56px;
   padding: 6px 14px 2px;
@@ -263,14 +263,6 @@ textarea:focus-visible {
   font-size: 15px;
   font-weight: 750;
   letter-spacing: -0.02em;
-}
-
-.carrier-appbar-actions {
-  display: flex;
-}
-
-.carrier-appbar-actions .carrier-icon-button {
-  width: 36px;
 }
 
 .carrier-progress-copy {
@@ -483,20 +475,6 @@ textarea:focus-visible {
   margin-top: 2px;
   color: #929596;
   font-size: 11px;
-}
-
-.carrier-section-heading button {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 5px;
-  padding: 0 2px 0 8px;
-  border: 0;
-  background: transparent;
-  color: #55595a;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .carrier-order-list {
