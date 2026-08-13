@@ -349,11 +349,17 @@ function DecisionDialog({
           </div>
         </div>
 
-        <div className="mt-lg flex items-center justify-between gap-lg border-t border-outline-variant pt-lg">
-          <p className="max-w-xl text-label-sm text-secondary">
+        {/*
+          버튼 묶음이 w-[520px] 고정이라 좁은 폭에서 근거 문단을 0에 가깝게 밀어냈다.
+          flex 자식은 기본으로 줄어들 수 있어서 문단이 한 줄에 한두 글자씩 세로로
+          쌓였다. 문단에 최소 폭을 주고 줄바꿈을 허용해, 자리가 모자라면 버튼 묶음이
+          아랫줄로 내려가게 한다.
+        */}
+        <div className="mt-lg flex flex-wrap items-center justify-between gap-lg border-t border-outline-variant pt-lg">
+          <p className="min-w-[18rem] max-w-xl flex-1 text-label-sm text-secondary">
             근거: 톤급×시간창 시나리오 {modelMetadata.scenarioRows}행 · 모델 표본 {modelMetadata.trainingRows.toLocaleString('ko-KR')}행 · 차종 대체는 원본 축 부재로 수치 제외
           </p>
-          <div className="grid w-[520px] grid-cols-2 gap-sm">
+          <div className="grid w-full max-w-[520px] shrink-0 grid-cols-2 gap-sm">
             <button type="button" onClick={() => onDecision('current')} className="min-h-12 rounded-full border border-outline bg-white px-lg text-label-md font-black text-on-surface hover:bg-surface-container-low">현재 조건대로 진행</button>
             <button type="button" onClick={() => onDecision('adjusted')} className="min-h-12 rounded-full bg-on-secondary-fixed px-lg text-label-md font-black text-primary-fixed hover:bg-[#292927]">조정안으로 등록</button>
           </div>
