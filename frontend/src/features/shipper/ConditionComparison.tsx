@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useInsight } from '../../lib/useInsight'
 import { windowOptions } from './shipperData'
 import {
   addMinutesToTime,
@@ -365,6 +366,64 @@ function DecisionDialog({
   )
 }
 
+/**
+ * Gemini 자연어 설명.
+ *
+ * 없어도 되는 값이다 — 키 미설정·API 실패·환각 숫자 탐지 시 전부 빈 문자열이
+ * 오고, 그러면 이 영역을 통째로 숨긴다. 화면의 다른 부분은 영향받지 않는다.
+ *
+ * facts 에는 **화면에 이미 떠 있는 값만** 담는다. 차이·합계를 계산해 넣지 마라 —
+ * 핸들러가 facts 에 없는 숫자를 응답에서 발견하면 통째로 버리도록 되어 있고,
+ * 그 검사가 우리가 넣은 파생값까지 정답으로 인정해 버리면 검증이 헐거워진다.
+ */
+function InsightNote({ current, adjusted }: { current: ScenarioResult; adjusted: ScenarioResult }) {
+  const facts = useMemo(
+    () => ({
+      현재조건: {
+        톤급: current.tonnage,
+        시간창_분: current.windowMinutes,
+        수락가능차주: current.availableDrivers,
+        예측_운임: current.estimatedFare,
+        예측_배차분: current.dispatchMinutes,
+        유찰확률: current.failureProbability,
+      },
+      조정안: {
+        톤급: adjusted.tonnage,
+        시간창_분: adjusted.windowMinutes,
+        수락가능차주: adjusted.availableDrivers,
+        예측_운임: adjusted.estimatedFare,
+        예측_배차분: adjusted.dispatchMinutes,
+        유찰확률: adjusted.failureProbability,
+      },
+    }),
+    [current, adjusted],
+  )
+
+  const { text, 로딩중 } = useInsight('SHIPPER', facts)
+
+  if (로딩중) {
+    return (
+      <div className="mt-md rounded-xl border border-outline-variant bg-surface-container-low p-lg" aria-busy="true">
+        <div className="h-3 w-1/3 rounded bg-surface-variant animate-pulse" />
+        <div className="mt-sm h-3 w-full rounded bg-surface-variant animate-pulse" />
+      </div>
+    )
+  }
+
+  if (text === '') return null
+
+  return (
+    <div className="mt-md rounded-xl border border-primary bg-[#fffdf0] p-lg">
+      <div className="flex items-center gap-xs">
+        <span className="material-symbols-outlined text-[18px] text-on-primary-container" aria-hidden="true">auto_awesome</span>
+        <p className="text-label-sm font-bold text-on-primary-container">AI 설명</p>
+      </div>
+      <p className="mt-sm whitespace-pre-line text-body-md leading-6 text-on-surface">{text}</p>
+      <p className="mt-sm text-label-sm text-secondary">위 수치를 문장으로 옮긴 것입니다. 새로운 값을 계산하지 않습니다.</p>
+    </div>
+  )
+}
+
 function ConditionComparison({ form, scenarios, modelMetadata, options, onOptionsChange, onDecision }: ConditionComparisonProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const current = getCurrentScenario(form, scenarios)
@@ -427,6 +486,8 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
             </p>
           </div>
         </div>
+
+        <InsightNote current={current} adjusted={adjusted} />
       </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-lg">
