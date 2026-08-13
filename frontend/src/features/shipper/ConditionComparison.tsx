@@ -255,8 +255,8 @@ function DecisionDialog({
   const minuteDelta = Math.round(Math.abs(adjusted.dispatchMinutes - current.dispatchMinutes) * 10) / 10
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-xl" role="presentation">
-      <section role="dialog" aria-modal="true" aria-labelledby="decision-dialog-title" className="max-h-[92vh] w-full max-w-[1180px] overflow-y-auto rounded-3xl bg-background p-xl shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-xl animate-[mv-backdrop-in_180ms_ease-out] motion-reduce:animate-none" role="presentation">
+      <section role="dialog" aria-modal="true" aria-labelledby="decision-dialog-title" className="max-h-[92vh] w-full max-w-[1180px] overflow-y-auto rounded-3xl bg-background p-xl shadow-2xl animate-[mv-modal-in_200ms_ease-out] motion-reduce:animate-none">
         <div className="flex items-start justify-between gap-lg">
           <div>
             <p className="text-label-sm font-black text-primary">데이터 기반 등록 선택</p>
