@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.api_seed import DEMO_CARRIER_CALLS, _REAL_CALLS
 from app.main import app
 
 
@@ -46,8 +47,16 @@ def test_shipper_and_carrier_use_camel_case_units() -> None:
     )
     assert carrier.status_code == 200
     body = carrier.json()
-    assert body["matchedCallCount"] == 3
+    # currentLocation 미지정 = 오더 게시판 첫 진입. 3건으로 자르지 않고
+    # (하드코딩 풀 + predictions.json 실데이터) 전체를 스크롤 목록으로 준다.
+    assert body["matchedCallCount"] == len(DEMO_CARRIER_CALLS) + len(_REAL_CALLS or [])
     assert body["calls"][0]["recommended"] is True
+    net_per_hour = [
+        call["estimatedNetIncomeWon"] / (call["durationMinutes"] / 60)
+        for call in body["calls"]
+        if call["durationMinutes"] > 0
+    ]
+    assert net_per_hour == sorted(net_per_hour, reverse=True)
     for call in body["calls"]:
         assert isinstance(call["fareWon"], int)
         assert isinstance(call["durationMinutes"], int)
