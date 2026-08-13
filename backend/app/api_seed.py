@@ -5,8 +5,8 @@
 
 `carrier_matches()`는 두 단계로 실데이터를 흡수한다.
 
-1. `predictions.json`의 `운송인_추천콜`이 7개 기본 필드(콜ID·출발지·도착지·
-   거리km·예측_운임·톨비·표준소요_h)를 갖추면 그 행들을 하드코딩 콜 풀
+1. `predictions.json`의 `운송인_추천콜`이 톤급을 포함한 8개 기본 필드
+   (콜ID·톤급·출발지·도착지·거리km·예측_운임·톨비·표준소요_h)를 갖추면 하드코딩 콜 풀
    (`DEMO_CARRIER_CALLS`)에 **병합**한다. `복화가능성`은 predictions.json에
    아직 없다 — 모델이 이 값을 예측하지 않기 때문이다. 없으면 중립 추정치를
    채우고 "복화가능성 추정치" 태그로 화면에서 구분해 보여준다(`_예측콜로`).
@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -477,6 +478,11 @@ DEMO_CARRIER_CALLS: list[dict[str, Any]] = [
     },
 ]
 
+# 현재 데모 시드는 5톤 운임·연비 전제로 만든 콜이다. 콜 스키마에 톤급을 명시해
+# 다른 톤급 차량에 섞이지 않게 한다.
+for _demo_call in DEMO_CARRIER_CALLS:
+    _demo_call["tonnage"] = 5
+
 
 def route_key(call: dict[str, Any]) -> str:
     return f"{call['origin']['label']}->{call['destination']['label']}"
@@ -490,7 +496,7 @@ _PREDICTIONS_CANDIDATES = [
 ]
 
 _추천콜_필수_문자열_필드 = ("콜ID", "출발지", "도착지")
-_추천콜_필수_숫자_필드 = ("거리km", "예측_운임", "톨비", "표준소요_h")
+_추천콜_필수_숫자_필드 = ("톤급", "거리km", "예측_운임", "톨비", "표준소요_h")
 
 
 def _숫자인가(v: Any) -> bool:
@@ -498,7 +504,7 @@ def _숫자인가(v: Any) -> bool:
 
 
 def _유효한_추천콜_행(행: Any) -> bool:
-    """기본 7개 필드(콜ID·출발지·도착지·거리km·예측_운임·톨비·표준소요_h)만 있으면 통과한다.
+    """톤급을 포함한 기본 8개 필드가 있어야 추천 풀에 포함한다.
 
     `복화가능성`은 없어도 된다 — predictions.json이 아직 이 값을 안 주므로,
     필수로 요구하면 실데이터가 영영 흡수되지 않는다. 없으면 `_예측콜로`가
@@ -509,6 +515,8 @@ def _유효한_추천콜_행(행: Any) -> bool:
     if any(not isinstance(행.get(k), str) or not 행[k].strip() for k in _추천콜_필수_문자열_필드):
         return False
     if any(not _숫자인가(행.get(k)) for k in _추천콜_필수_숫자_필드):
+        return False
+    if 행["톤급"] not in (5, 11, 25):
         return False
     복화 = 행.get("복화가능성")
     return 복화 is None or (_숫자인가(복화) and 0 <= 복화 <= 1)
@@ -548,6 +556,7 @@ def _예측콜로(행: dict[str, Any], index: int) -> dict[str, Any]:
 
     return {
         "callId": str(행["콜ID"]),
+        "tonnage": int(행["톤급"]),
         "origin": {"label": str(행["출발지"]), "lat": None, "lng": None},
         "destination": {"label": str(행["도착지"]), "lat": None, "lng": None},
         # predictions.json에 상차 시각이 없다 — 등록 순서로 30분 간격을 두어 임시 배치한다.
@@ -668,8 +677,49 @@ def _시간당_실수령(call: dict[str, Any]) -> float:
     return call["estimatedNetIncomeWon"] / 총소요_h if 총소요_h > 0 else 0.0
 
 
+_권역_지역어: dict[str, tuple[str, ...]] = {
+    "수도권": ("서울", "경기", "인천"),
+    "CAPITAL": ("서울", "경기", "인천"),
+    "충청": ("대전", "세종", "충남", "충북"),
+    "CHUNGCHEONG": ("대전", "세종", "충남", "충북"),
+    "영남": ("부산", "대구", "울산", "경남", "경북"),
+    "YEONGNAM": ("부산", "대구", "울산", "경남", "경북"),
+    "호남": ("광주", "전남", "전북"),
+    "HONAM": ("광주", "전남", "전북"),
+    "강원제주": ("강원", "제주"),
+    "GANGWON_JEJU": ("강원", "제주"),
+}
+
+
+def _선호지역인가(call: dict[str, Any], region: str | None, subregion: str | None) -> bool:
+    origin = str(call["origin"]["label"])
+    if subregion:
+        return subregion in origin
+    if region:
+        terms = _권역_지역어.get(region, (region,))
+        return any(term in origin for term in terms)
+    return True
+
+
+def _시간대(call: dict[str, Any]) -> str:
+    hour = datetime.fromisoformat(str(call["pickupAt"])).hour
+    if 6 <= hour < 12:
+        return "MORNING"
+    if 12 <= hour < 18:
+        return "AFTERNOON"
+    return "NIGHT"
+
+
 def carrier_matches(
     *,
+    tonnage: int | None = None,
+    region: str | None = None,
+    subregion: str | None = None,
+    time_slots: set[str] | None = None,
+    max_empty_km: int | None = None,
+    max_duration_hours: int | None = None,
+    prioritize_income: bool = False,
+    prioritize_backhaul: bool = False,
     current_location: str | None,
     exclude_call_ids: set[str],
     exclude_route_keys: set[str],
@@ -677,8 +727,9 @@ def carrier_matches(
 ) -> list[dict[str, Any]]:
     """현재 위치와 제외 목록을 반영해 결정론적으로 반환한다.
 
-    `current_location`이 없으면(첫 진입 · 오더 게시판 · TOP 3 비교) 제외 목록만
-    걸러 전체를 반환하되, 공차거리 재계산이 끝난 시간당 실수령 내림차순으로 정렬한다
+    `current_location`이 없으면(첫 진입 · 오더 게시판 · TOP 3 비교) 톤급·지역·시간·
+    공차거리·운행시간 조건을 적용하고, 선택한 수익·복화 우선순위로 정렬한다.
+    별도 우선순위가 없으면 공차거리 재계산이 끝난 시간당 실수령 내림차순으로 정렬한다
     — index 0(=`recommended`)이 "표면 운임이 아니라 실제로 가장 남는 콜"이 되게
     하기 위해서다. `current_location`이 있으면(운행 중 후속 콜 탐색) 가까운 순
     최대 3건만 반환한다 — 이 경로는 "다음으로 이어 갈 콜"이 목적이라 수익성이
@@ -689,19 +740,42 @@ def carrier_matches(
     (main.py가 결정해서 넘긴다 — 여기는 순수하게 받은 값만 쓴다).
     """
     base_calls = DEMO_CARRIER_CALLS + (_REAL_CALLS or [])
+    requested_time_slots = time_slots or set()
     candidates = [
         call
         for call in base_calls
-        if call["callId"] not in exclude_call_ids and route_key(call) not in exclude_route_keys
+        if call["callId"] not in exclude_call_ids
+        and route_key(call) not in exclude_route_keys
+        and (tonnage is None or call["tonnage"] == tonnage)
+        and _선호지역인가(call, region, subregion)
+        and (not requested_time_slots or _시간대(call) in requested_time_slots)
     ]
     candidates = _기준점_공차거리_적용(candidates, reference_location or current_location)
 
+    if max_empty_km is not None:
+        candidates = [call for call in candidates if call["emptyDistanceKm"] <= max_empty_km]
+    if max_duration_hours is not None:
+        candidates = [call for call in candidates if call["durationMinutes"] <= max_duration_hours * 60]
+
+    def preference_key(item: dict[str, Any]) -> tuple[Any, ...]:
+        keys: list[Any] = []
+        if prioritize_income:
+            keys.append(-item["estimatedNetIncomeWon"])
+        if prioritize_backhaul:
+            keys.append(-item["backhaulProbability"])
+        return (*keys, -_시간당_실수령(item), item["emptyDistanceKm"], item["callId"])
+
     if current_location:
-        exact = [call for call in candidates if call["origin"]["label"] == current_location]
-        nearby = [call for call in candidates if call not in exact]
-        candidates = exact + sorted(nearby, key=lambda item: (item["emptyDistanceKm"], item["callId"]))
+        candidates = sorted(
+            candidates,
+            key=lambda item: (
+                item["origin"]["label"] != current_location,
+                item["emptyDistanceKm"],
+                *preference_key(item),
+            ),
+        )
     else:
-        candidates = sorted(candidates, key=lambda item: (-_시간당_실수령(item), item["callId"]))
+        candidates = sorted(candidates, key=preference_key)
 
     limit = 3 if current_location else len(candidates)
     result: list[dict[str, Any]] = []

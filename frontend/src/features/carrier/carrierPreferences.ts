@@ -1,3 +1,5 @@
+import type { 톤급 } from '../../lib/types'
+
 export interface CarrierPreferences {
   권역: string
   세부지역: string
@@ -8,6 +10,7 @@ export interface CarrierPreferences {
 export type CarrierTimeCode = 'MORNING' | 'AFTERNOON' | 'NIGHT'
 
 export interface CarrierMatchQuery {
+  tonnage: 톤급
   region: string
   subregion: string
   timeSlots: CarrierTimeCode[]
@@ -53,8 +56,9 @@ export function 선호조건완료인가(value: CarrierPreferences): boolean {
 }
 
 /** 화면 선택값을 운송인 매칭 API 쿼리 계약으로 변환한다. */
-export function 선호조건을매칭쿼리로(value: CarrierPreferences): CarrierMatchQuery {
+export function 선호조건을매칭쿼리로(value: CarrierPreferences, tonnage: 톤급 = 5): CarrierMatchQuery {
   const query: CarrierMatchQuery = {
+    tonnage,
     region: value.권역,
     subregion: value.세부지역,
     timeSlots: value.선호시간.includes('상관없음')
@@ -71,9 +75,9 @@ export function 선호조건을매칭쿼리로(value: CarrierPreferences): Carri
 }
 
 /** URLSearchParams의 반복 키를 사용해 timeSlots 배열을 보존한다. */
-export function 매칭쿼리문자열(value: CarrierPreferences): string {
-  const query = 선호조건을매칭쿼리로(value)
-  const params = new URLSearchParams({ region: query.region, subregion: query.subregion })
+export function 매칭쿼리문자열(value: CarrierPreferences, tonnage: 톤급 = 5): string {
+  const query = 선호조건을매칭쿼리로(value, tonnage)
+  const params = new URLSearchParams({ tonnage: String(query.tonnage), region: query.region, subregion: query.subregion })
   for (const time of query.timeSlots) params.append('timeSlots', time)
   if (query.maxEmptyKm !== undefined) params.set('maxEmptyKm', String(query.maxEmptyKm))
   if (query.maxDurationHours !== undefined) params.set('maxDurationHours', String(query.maxDurationHours))
@@ -88,8 +92,9 @@ export function 후속매칭쿼리문자열(
   currentLocation: string,
   excludeCallIds: string[],
   excludeRouteKeys: string[],
+  tonnage: 톤급 = 5,
 ): string {
-  const params = new URLSearchParams(매칭쿼리문자열(value))
+  const params = new URLSearchParams(매칭쿼리문자열(value, tonnage))
   params.set('currentLocation', currentLocation)
   excludeCallIds.forEach((id) => params.append('excludeCallIds', id))
   excludeRouteKeys.forEach((route) => params.append('excludeRouteKeys', route))

@@ -167,6 +167,7 @@ def api_match_shipper(
 @app.get("/api/v1/matches/carrier/{carrier_id}")
 def api_match_carrier(
     carrier_id: str,
+    tonnage: int | None = None,
     region: str | None = None,
     subregion: str | None = None,
     timeSlots: list[str] = Query(default=[]),
@@ -178,7 +179,17 @@ def api_match_carrier(
     excludeCallIds: list[str] = Query(default=[]),
     excludeRouteKeys: list[str] = Query(default=[]),
 ) -> dict[str, Any]:
+    if tonnage is not None and tonnage not in (5, 11, 25):
+        raise HTTPException(status_code=422, detail="톤급은 5, 11, 25 중 하나여야 합니다.")
     calls = carrier_matches(
+        tonnage=tonnage,
+        region=region,
+        subregion=subregion,
+        time_slots=set(timeSlots),
+        max_empty_km=maxEmptyKm,
+        max_duration_hours=maxDurationHours,
+        prioritize_income=bool(prioritizeIncome),
+        prioritize_backhaul=bool(prioritizeBackhaul),
         current_location=currentLocation,
         exclude_call_ids=set(excludeCallIds),
         exclude_route_keys=set(excludeRouteKeys),
@@ -189,6 +200,7 @@ def api_match_carrier(
     return {
         "carrierId": carrier_id,
         "appliedConditions": {
+            "tonnage": tonnage,
             "region": region,
             "subregion": subregion,
             "timeSlots": timeSlots,

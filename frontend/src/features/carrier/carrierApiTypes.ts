@@ -12,6 +12,7 @@ export interface ApiPredictionSources {
 
 export interface ApiCarrierCall {
   callId: string
+  tonnage: 5 | 11 | 25
   origin: ApiMapPoint
   destination: ApiMapPoint
   pickupAt: string
