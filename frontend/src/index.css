@@ -1277,6 +1277,47 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+.carrier-insight-note {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #fee500;
+  border-radius: 12px;
+  background: #fffdf0;
+}
+
+.carrier-insight-note-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8a7600;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.carrier-insight-note p {
+  margin-top: 8px;
+  color: #2b2b28;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.carrier-insight-note-loading {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.carrier-insight-note-loading span {
+  height: 9px;
+  border-radius: 5px;
+  background: #efe9b8;
+  animation: carrier-pulse 1.2s infinite alternate;
+}
+
+.carrier-insight-note-loading span:last-child {
+  width: 70%;
+}
+
 .carrier-radio {
   display: inline-flex;
   width: 20px;

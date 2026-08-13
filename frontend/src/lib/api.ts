@@ -1,7 +1,31 @@
 import type { InsightsResponse } from './types'
 
-/** Railway 백엔드 주소. .env 의 VITE_API_BASE 로 덮어쓴다 */
-export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+/**
+ * 매칭 API(Railway) 주소.
+ *
+ * 우선순위: VITE_API_BASE → (개발) 빈 문자열 → (배포) 아래 기본값.
+ *
+ * 기본값을 코드에 두는 이유 —
+ * Vercel 에 VITE_API_BASE 를 넣어도 커밋이 그대로면 재빌드가 일어나지 않아
+ * 이전 번들이 계속 서빙됐다. VITE_* 는 빌드 시점에 박히므로 그 번들에는
+ * 주소가 없고, 배포본이 상대경로로 요청해 405 를 받고 조용히 폴백 데이터를
+ * 보여줬다. 배포 설정 하나에 데모 전체가 걸리지 않게 기본값을 둔다.
+ * 이 주소는 비밀이 아니다(공개 API, CORS 전체 허용).
+ *
+ * **개발에서는 반드시 빈 문자열이어야 한다.** vite dev proxy 가 /v1 을
+ * 127.0.0.1:8000 으로 넘기는데, 여기서 Railway 를 기본값으로 주면 로컬 백엔드를
+ * 띄워도 요청이 배포 서버로 새어 나간다.
+ */
+const 배포_기본_백엔드 = 'https://movin-logistics-production.up.railway.app'
+
+function resolveApiBase(): string {
+  const 설정값 = import.meta.env.VITE_API_BASE?.trim()
+  // 끝의 / 를 떼지 않으면 `${API_BASE}/v1/...` 이 `//v1/...` 이 된다.
+  if (설정값) return 설정값.replace(/\/+$/, '')
+  return import.meta.env.DEV ? '' : 배포_기본_백엔드
+}
+
+export const API_BASE = resolveApiBase()
 
 class ApiError extends Error {
   readonly status: number

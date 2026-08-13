@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useInsight } from '../../lib/useInsight'
 import { operationLogs, shipperReportMetrics } from './shipperData'
 import {
   formatShortCurrency,
@@ -6,6 +7,7 @@ import {
   getCurrentScenario,
   getScenario,
   getSelectedLocation,
+  시나리오_facts,
 } from './shipperModel'
 import type { CallForm, ComparisonOptions, DispatchDecision, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
@@ -23,6 +25,30 @@ function decisionLabel(decision: DispatchDecision) {
   return '아직 선택하지 않음'
 }
 
+function AiInsightNote({ decision, facts }: { decision: DispatchDecision; facts: Record<string, unknown> | null }) {
+  const { text, 로딩중 } = useInsight('SHIPPER', facts, facts !== null)
+
+  if (decision === null) return null
+  if (!로딩중 && text === '') return null
+
+  return (
+    <div className="mt-md border-t border-[#444] pt-md">
+      <div className="flex items-center gap-xs">
+        <span className="material-symbols-outlined text-[18px] text-primary-fixed" aria-hidden="true">auto_awesome</span>
+        <p className="text-label-sm font-bold text-primary-fixed">AI 설명</p>
+      </div>
+      {로딩중 ? (
+        <div className="mt-sm space-y-xs" aria-busy="true">
+          <div className="h-3 w-1/3 rounded bg-white/20 animate-pulse" />
+          <div className="h-3 w-full rounded bg-white/20 animate-pulse" />
+        </div>
+      ) : (
+        <p className="mt-sm whitespace-pre-line text-body-md leading-6 text-secondary-fixed">{text}</p>
+      )}
+    </div>
+  )
+}
+
 function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
   const current = getCurrentScenario(form, scenarios)
   const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
@@ -34,18 +60,30 @@ function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
       ? `${route} 콜은 입력한 조건을 그대로 유지했습니다. 조건을 바꾸지 않아도 불이익은 없으며, 이번 선택은 다음 제안의 판단 근거로 기록됩니다. 현재 원본 조합의 예상 수락 가능 차주는 ${current.availableDrivers}명, 예상 운임은 ${formatShortCurrency(current.estimatedFare)}입니다.`
       : '조건 비교에서 진행 방식을 선택하면 이번 배차 조건의 의미와 예상 결과를 화주용 문장으로 정리합니다.'
 
+  // InsightNote(ConditionComparison.tsx)와 같은 규칙: facts 에는 화면에 이미 뜬 값만 담는다.
+  const facts = useMemo(() => {
+    if (decision === null) return null
+    return {
+      결정: decisionLabel(decision),
+      노선: route,
+      현재조건: 시나리오_facts(current),
+      ...(decision === 'adjusted' ? { 조정안: 시나리오_facts(adjusted), 상차일_연기_포함: options.allowDateDelay } : {}),
+    }
+  }, [decision, route, current, adjusted, options.allowDateDelay])
+
   return (
     <div className="rounded-2xl bg-on-secondary-fixed p-xl text-secondary-fixed">
       <div className="flex items-center justify-between gap-lg">
         <div>
-          <p className="text-label-sm font-black text-primary-fixed">OpenAI 자연어 요약 영역</p>
+          <p className="text-label-sm font-black text-primary-fixed">Gemini 자연어 설명</p>
           <h2 className="mt-xs text-headline-sm font-black">이번 배차 조건 선택 결과</h2>
         </div>
-        <span className="rounded-full bg-[#292927] px-md py-sm text-label-sm font-bold text-secondary-fixed-dim">자료 기반 생성형 AI 연결 지점</span>
+        <span className="rounded-full bg-[#292927] px-md py-sm text-label-sm font-bold text-secondary-fixed-dim">자료 기반 생성형 AI 연동</span>
       </div>
       <p className="mt-lg max-w-4xl text-body-lg leading-7 text-secondary-fixed">{summary}</p>
+      <AiInsightNote decision={decision} facts={facts} />
       <p className="mt-md border-t border-[#444] pt-md text-label-sm text-secondary-fixed-dim">
-        입력 예정: 콜 등록값 · 현재/완화 시나리오 · 사용자 선택 · 운영 리포트 / 현재 상태: 프론트 데모 문장, API 미연결
+        표시 데이터: 콜 등록값 · 현재/조정 시나리오 · 사용자 선택 · 운영 리포트
       </p>
     </div>
   )
