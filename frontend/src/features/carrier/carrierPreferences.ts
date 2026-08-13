@@ -82,6 +82,20 @@ export function 매칭쿼리문자열(value: CarrierPreferences): string {
   return params.toString()
 }
 
+/** 현재 도착지와 이미 처리한 콜/노선을 다음 매칭 요청에 함께 보낸다. */
+export function 후속매칭쿼리문자열(
+  value: CarrierPreferences,
+  currentLocation: string,
+  excludeCallIds: string[],
+  excludeRouteKeys: string[],
+): string {
+  const params = new URLSearchParams(매칭쿼리문자열(value))
+  params.set('currentLocation', currentLocation)
+  excludeCallIds.forEach((id) => params.append('excludeCallIds', id))
+  excludeRouteKeys.forEach((route) => params.append('excludeRouteKeys', route))
+  return params.toString()
+}
+
 export function 선호조건읽기(): CarrierPreferences {
   try {
     const raw = localStorage.getItem(저장키)
@@ -115,4 +129,8 @@ export function 선호조건저장(value: CarrierPreferences): void {
   } catch {
     // 저장 실패가 운행 흐름을 막지 않게 한다.
   }
+}
+
+export function 선호조건초기화(): void {
+  try { localStorage.removeItem(저장키) } catch { /* 브라우저 저장소가 막혀도 초기화는 계속한다. */ }
 }

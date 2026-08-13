@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCarrierCalls } from './features/carrier/useCarrierCalls'
-import type { 추천콜상세 } from './features/carrier/carrierTypes'
-import { 귀가가능한가, 수익분해계산, type 수익분해 } from './features/carrier/economics'
-import { 수락피드백전송 } from './features/carrier/decisions'
+import { 노선키, type 추천콜상세 } from './features/carrier/carrierTypes'
+import { 귀가가능한가 } from './features/carrier/economics'
+import { 피드백요청, 피드백전송 } from './features/carrier/decisions'
+import type { ApiFeedbackRequest } from './features/carrier/carrierApiTypes'
+import { KakaoRouteMap } from './features/carrier/KakaoRouteMap'
 import { useInsight } from './lib/useInsight'
 import {
   기본운송인,
   권역별_세부지역,
   등록화물_목록,
-  복화후보_목록,
   선호시간_선택지,
   운송단계,
   우선조건_선택지,
@@ -18,6 +19,9 @@ import {
   선호조건완료인가,
   선호조건읽기,
   선호조건저장,
+  선호조건초기화,
+  후속매칭쿼리문자열,
+  빈선호조건,
   매칭쿼리문자열,
   type CarrierPreferences,
 } from './features/carrier/carrierPreferences'
@@ -308,25 +312,23 @@ function PreferencesScreen({ value, onChange }: { value: CarrierPreferences; onC
 
 interface 계산후보 {
   콜: 추천콜상세
-  분해: 수익분해
+  분해: {
+    운임: number
+    유류비_적재: number
+    유류비_공차: number
+    톨비: number
+    실수령: number
+    총소요_h: number
+    시간당_실수령: number
+  }
   귀가: boolean
 }
 
 const 운행비 = (candidate: 계산후보) => candidate.분해.유류비_적재 + candidate.분해.유류비_공차 + candidate.분해.톨비
 
 function 후보표시정보(candidate: 계산후보, index: number) {
-  const tags = [
-    index === 0 ? '추천 1순위' : '비교 후보',
-    candidate.콜.공차거리km <= 30 ? '공차 30km 이내' : '',
-    candidate.분해.총소요_h <= 8 ? '8시간 이내' : '',
-    candidate.콜.복화가능성 >= 0.5 ? '복화 가능성 높음' : '',
-  ].filter(Boolean)
-  const warnings = [
-    candidate.콜.공차거리km > 30 ? '공차거리 주의' : '',
-    candidate.분해.총소요_h > 8 ? '8시간 초과' : '',
-    candidate.콜.복화가능성 < 0.3 ? '복화 가능성 낮음' : '',
-    !candidate.귀가 ? '귀가 경로 아님' : '',
-  ].filter(Boolean)
+  const tags = [index === 0 ? '추천 1순위' : '비교 후보', ...candidate.콜.태그]
+  const warnings = [...candidate.콜.경고, ...(!candidate.귀가 ? ['귀가 경로 아님'] : [])]
   return { tags, warnings }
 }
 
@@ -334,7 +336,7 @@ function CallsLoading() {
   return <div className="carrier-loading-list" aria-label="오더 불러오는 중" aria-busy="true">{[0, 1, 2].map((n) => <div key={n}><span /><span /><span /></div>)}</div>
 }
 
-function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery }: { candidates: 계산후보[]; loading: boolean; preferences: CarrierPreferences; source: 'api' | '폴백'; matchQuery: string }) {
+function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery, errorMessage, onRetry }: { candidates: 계산후보[]; loading: boolean; preferences: CarrierPreferences; source: 'api' | '폴백'; matchQuery: string; errorMessage: string; onRetry: () => void }) {
   return (
     <div className="carrier-screen carrier-board-screen" data-match-query={matchQuery}>
       <h1>조건에 맞는 오더를<br />찾았어요</h1>
@@ -352,7 +354,7 @@ function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery
           ))}
         </div>
       )}
-      {source === '폴백' && <p className="carrier-data-note">현재 예시 오더를 표시하고 있어요.</p>}
+      {source === '폴백' && <div className="carrier-api-fallback"><p>{errorMessage || '현재 결정론적 예시 오더를 표시하고 있어요.'}</p><button type="button" onClick={onRetry}>다시 시도</button></div>}
     </div>
   )
 }
@@ -474,33 +476,20 @@ function CompareScreen({
   )
 }
 
-function RouteMap() {
-  return (
-    <div className="carrier-route-map" aria-label="현재 위치에서 상차지, 하차지까지의 이동 경로 도식">
-      <svg viewBox="0 0 340 230" role="img">
-        <path className="street major" d="M-20 185C45 160 72 177 118 135S230 72 360 42" />
-        <path className="street" d="M14 30C82 72 108 98 164 104s103-35 178-10M5 118c80-20 124 12 171 42s98 19 165 2M82-10c10 58-14 99-6 154s50 71 59 104M250-10c-16 58 8 86 2 137s-31 79-29 121" />
-        <path className="route-shadow" d="M38 184C77 164 82 152 119 146c38-6 46-51 77-63 31-12 58 8 104-42" />
-        <path className="route-line" d="M38 184C77 164 82 152 119 146c38-6 46-51 77-63 31-12 58 8 104-42" />
-        <circle className="route-current" cx="38" cy="184" r="8" />
-        <circle className="route-pickup" cx="119" cy="146" r="9" />
-        <circle className="route-dropoff" cx="300" cy="41" r="9" />
-      </svg>
-      <span className="map-label current">현위치</span><span className="map-label pickup">상차</span><span className="map-label dropoff">하차</span>
-    </div>
-  )
-}
-
-function RouteScreen({ candidate }: { candidate?: 계산후보 }) {
+function RouteScreen({ candidate, progress }: { candidate?: 계산후보; progress: number }) {
   if (!candidate) return <CallsLoading />
   const { 콜, 분해 } = candidate
   return (
     <div className="carrier-screen carrier-route-screen">
       <h1>이동 경로를<br />확인해 주세요</h1>
       <div className="carrier-route-summary"><strong>{콜.출발지.split(' ').slice(0, 2).join(' ')} → {콜.도착지.split(' ').slice(0, 2).join(' ')}</strong><span>{콜.거리km.toLocaleString('ko-KR')}km · 약 {분해.총소요_h.toFixed(1)}시간</span></div>
-      <RouteMap />
+      <KakaoRouteMap call={콜} progress={progress} />
+      <div className="carrier-drive-progress" aria-label={`운행 진행률 ${progress}%`}>
+        <div><strong>운행 진행 중</strong><b>{progress}%</b></div>
+        <span><i style={{ width: `${progress}%` }} /></span>
+      </div>
       <div className="carrier-route-timeline">
-        <div><span className="timeline-dot current" /><small>현재 위치</small><strong>수도권 차고지</strong><b>지금</b></div>
+        <div><span className="timeline-dot current" /><small>차량 위치</small><strong>{progress < 100 ? '경로를 따라 이동 중' : 콜.도착지}</strong><b>{progress}%</b></div>
         <div><span className="timeline-dot pickup" /><small>상차</small><strong>{콜.출발지}</strong><b>+ {콜.공차거리km.toLocaleString('ko-KR')}km</b></div>
         <div><span className="timeline-dot dropoff" /><small>하차</small><strong>{콜.도착지}</strong><b>+ {콜.거리km.toLocaleString('ko-KR')}km</b></div>
       </div>
@@ -509,55 +498,55 @@ function RouteScreen({ candidate }: { candidate?: 계산후보 }) {
   )
 }
 
-function BackhaulScreen({ choice, onChoice }: { choice: string; onChoice: (id: string) => void }) {
+function BackhaulScreen({ candidate, loading, source, errorMessage, deciding, onRetry, onAccept, onHome }: { candidate?: 계산후보; loading: boolean; source: 'api' | '폴백'; errorMessage: string; deciding: boolean; onRetry: () => void; onAccept: () => void; onHome: () => void }) {
   return (
     <div className="carrier-screen carrier-backhaul-screen">
-      <h1>도착지 근처<br />복화 콜이 있어요</h1>
-      <p className="carrier-lead">돌아오는 길의 공차를 줄일 수 있는 화물입니다.</p>
-      <div className="carrier-backhaul-list" role="radiogroup" aria-label="복화 콜 선택">
-        {복화후보_목록.map((call, index) => {
-          const selected = choice === call.id
-          return (
-            <button key={call.id} type="button" role="radio" aria-checked={selected} onClick={() => onChoice(call.id)} className={selected ? 'is-selected' : ''}>
-              <div><small>{index === 0 ? '가장 가까운 복화' : '운임 우선 복화'}</small><strong>{call.출발지.split(' ').slice(0, 2).join(' ')} → {call.도착지.split(' ').slice(0, 2).join(' ')}</strong><p>{call.거리km}km · 공차 {call.공차거리km}km · {call.상차시간}</p><span>{call.화물}</span></div>
-              <b>{원(call.예상운임)}</b><span className="carrier-radio"><span /></span>
-            </button>
-          )
-        })}
-        <button type="button" role="radio" aria-checked={choice === 'none'} onClick={() => onChoice('none')} className={choice === 'none' ? 'is-selected' : ''}>
-          <div><small>이번에는 쉬어가기</small><strong>복화 없이 차고지로 복귀</strong><p>추가 상차 없이 운행을 마칩니다.</p></div>
-          <span className="carrier-radio"><span /></span>
-        </button>
+      <h1>현재 위치 기준<br />다음 추천 콜</h1>
+      <p className="carrier-lead">완료한 콜과 같은 callId·노선은 제외했어요.</p>
+      {loading ? <CallsLoading /> : candidate ? (
+        <article className="carrier-next-call-card">
+          <small>다음 추천</small>
+          <h2>{candidate.콜.출발지.split(' ').slice(0, 2).join(' ')} → {candidate.콜.도착지.split(' ').slice(0, 2).join(' ')}</h2>
+          <p>상차 {candidate.콜.상차시각} · 공차 {candidate.콜.공차거리km}km · {(candidate.콜.운행시간분 / 60).toFixed(1)}시간</p>
+          <div><span>예상 실수령</span><strong>{원(candidate.콜.예상실수령원)}</strong></div>
+          <div className="carrier-candidate-labels">{candidate.콜.태그.map((tag) => <span key={tag} className="is-tag">{tag}</span>)}</div>
+        </article>
+      ) : <div className="carrier-empty-call"><strong>추천 가능한 다음 콜이 없어요.</strong><p>현재 운행을 마치고 리포트로 이동할 수 있어요.</p></div>}
+      {source === '폴백' && <div className="carrier-api-fallback"><p>{errorMessage || '결정론적 예시 후보를 표시하고 있어요.'}</p><button type="button" onClick={onRetry}>다시 시도</button></div>}
+      <div className="carrier-backhaul-actions">
+        <button type="button" disabled={!candidate || deciding} onClick={onAccept}>{deciding ? '처리 중…' : '수락하고 다음 운행'}</button>
+        <button type="button" disabled={deciding} onClick={onHome}>집으로 돌아가기</button>
       </div>
     </div>
   )
 }
 
-function ReportScreen({ candidate, backhaulChoice }: { candidate?: 계산후보; backhaulChoice: string }) {
-  if (!candidate) return <CallsLoading />
-  const returnCall = 복화후보_목록.find((item) => item.id === backhaulChoice)
-  const gross = candidate.콜.예측_운임 + (returnCall?.예상운임 ?? 0)
-  const net = candidate.분해.실수령 + Math.round((returnCall?.예상운임 ?? 0) * 0.82)
-  const totalDistance = candidate.콜.거리km + candidate.콜.공차거리km + (returnCall?.거리km ?? 0) + (returnCall?.공차거리km ?? 0)
-  const emptySaved = returnCall ? Math.max(0, 104 - returnCall.공차거리km) : 0
+function ReportScreen({ calls }: { calls: 계산후보[] }) {
+  const loadedKm = calls.reduce((sum, item) => sum + item.콜.거리km, 0)
+  const emptyKm = calls.reduce((sum, item) => sum + item.콜.공차거리km, 0)
+  const totalDistance = loadedKm + emptyKm
+  const totalMinutes = calls.reduce((sum, item) => sum + item.콜.운행시간분, 0)
+  const net = calls.reduce((sum, item) => sum + item.콜.예상실수령원, 0)
+  const emptyRatio = totalDistance > 0 ? (emptyKm / totalDistance) * 100 : 0
   return (
     <div className="carrier-screen carrier-report-screen">
       <div className="carrier-report-check"><Icon name="check" size={28} /></div>
       <h1>오늘 운행을<br />완료했어요</h1>
-      <p className="carrier-lead">본 운송{ returnCall ? '과 복화 운송까지' : '을' } 안전하게 마쳤습니다.</p>
-      <div className="carrier-report-hero"><small>오늘 예상 실수령</small><strong>{원(net)}</strong><span>총 운임 {원(gross)}</span></div>
+      <p className="carrier-lead">실제로 선택한 {calls.length}개 콜의 운행 결과입니다.</p>
+      <div className="carrier-report-hero"><small>총 실수령</small><strong>{원(net)}</strong><span>완료 콜 {calls.length}건</span></div>
       <div className="carrier-report-grid">
-        <div><Icon name="route" size={20} /><small>총 이동거리</small><strong>{Math.round(totalDistance).toLocaleString('ko-KR')}km</strong></div>
-        <div><Icon name="clock" size={20} /><small>총 운행시간</small><strong>{(candidate.분해.총소요_h + (returnCall ? 3.1 : 0)).toFixed(1)}시간</strong></div>
-        <div><Icon name="truck" size={20} /><small>공차 절감</small><strong>{emptySaved}km</strong></div>
-        <div><Icon name="chart" size={20} /><small>운송 건수</small><strong>{returnCall ? 2 : 1}건</strong></div>
+        <div><Icon name="truck" size={20} /><small>적재거리</small><strong>{loadedKm.toFixed(1)}km</strong></div>
+        <div><Icon name="route" size={20} /><small>공차거리</small><strong>{emptyKm.toFixed(1)}km</strong></div>
+        <div><Icon name="route" size={20} /><small>총 주행거리</small><strong>{totalDistance.toFixed(1)}km</strong></div>
+        <div><Icon name="clock" size={20} /><small>총 운행시간</small><strong>{(totalMinutes / 60).toFixed(1)}시간</strong></div>
+        <div><Icon name="chart" size={20} /><small>공차 비율</small><strong>{emptyRatio.toFixed(1)}%</strong></div>
+        <div><Icon name="check" size={20} /><small>완료 콜</small><strong>{calls.length}건</strong></div>
       </div>
       <section className="carrier-report-routes">
         <h2>운행 내역</h2>
-        <div><span>본 운송</span><strong>{candidate.콜.출발지.split(' ').slice(0, 2).join(' ')} → {candidate.콜.도착지.split(' ').slice(0, 2).join(' ')}</strong><b>{원(candidate.콜.예측_운임)}</b></div>
-        {returnCall && <div><span>복화</span><strong>{returnCall.출발지.split(' ').slice(0, 2).join(' ')} → {returnCall.도착지.split(' ').slice(0, 2).join(' ')}</strong><b>{원(returnCall.예상운임)}</b></div>}
+        {calls.map((item, index) => <div key={item.콜.콜ID}><span>{index === 0 ? '본 운송' : `후속 ${index}`}</span><strong>{item.콜.출발지.split(' ').slice(0, 2).join(' ')} → {item.콜.도착지.split(' ').slice(0, 2).join(' ')}</strong><b>{원(item.콜.예상실수령원)}</b></div>)}
       </section>
-      <p className="carrier-data-note">실수령은 유류비와 톨비를 반영한 예상값입니다.</p>
+      <p className="carrier-data-note">API가 제공한 원 단위 비용과 실제 선택 결과만 합산했습니다.</p>
     </div>
   )
 }
@@ -581,67 +570,117 @@ function CarrierScreen() {
   const [프로필열림, set프로필열림] = useState(false)
   const [선호조건, set선호조건] = useState<CarrierPreferences>(() => 선호조건읽기())
   const [매칭쿼리, set매칭쿼리] = useState('')
-  const { 목록, 상태, 출처 } = useCarrierCalls(운송인ID, 매칭쿼리)
+  const 초기매칭 = useCarrierCalls(운송인ID, 매칭쿼리)
+  const [후속쿼리, set후속쿼리] = useState('')
+  const 후속매칭 = useCarrierCalls(운송인ID, 후속쿼리)
   const [선택콜ID, set선택콜ID] = useState('')
-  const [복화선택, set복화선택] = useState('')
+  const [현재콜, set현재콜] = useState<계산후보 | undefined>()
+  const [완료콜, set완료콜] = useState<계산후보[]>([])
+  const [후속콜수, set후속콜수] = useState(0)
+  const [운행진행률, set운행진행률] = useState(0)
+  const [운행알림열림, set운행알림열림] = useState(false)
   const [메뉴열림, set메뉴열림] = useState(false)
   const [안내, set안내] = useState('')
   const [새로고침시각, set새로고침시각] = useState('방금 전')
   const [추천알림열림, set추천알림열림] = useState(false)
   const [확정중, set확정중] = useState(false)
   const [확정콜ID, set확정콜ID] = useState('')
+  const [실패피드백, set실패피드백] = useState<ApiFeedbackRequest | null>(null)
+  const [여정ID, set여정ID] = useState(() => crypto.randomUUID())
   const 확정잠금 = useRef(false)
+  const 안내타이머 = useRef<number | undefined>(undefined)
+  const 잠금타이머 = useRef<number | undefined>(undefined)
 
-  const 후보 = useMemo<계산후보[]>(() => {
+  const 후보로 = (calls: 추천콜상세[]): 계산후보[] => {
     const homeArea = 선호조건.세부지역 || '서울'
-    return 목록
-      .map((콜) => ({
+    return calls.map((콜) => {
+      const 총소요_h = 콜.운행시간분 / 60
+      return {
         콜,
-        분해: 수익분해계산(콜, 기본운송인.톤급),
+        분해: {
+          운임: 콜.예측_운임,
+          유류비_적재: 콜.유류비원,
+          유류비_공차: 콜.공차비원,
+          톨비: 콜.톨비,
+          실수령: 콜.예상실수령원,
+          총소요_h,
+          시간당_실수령: 총소요_h > 0 ? Math.round(콜.예상실수령원 / 총소요_h) : 0,
+        },
         귀가: 귀가가능한가(콜.도착지, homeArea),
-      }))
-      .sort((a, b) => b.분해.시간당_실수령 - a.분해.시간당_실수령)
-  }, [목록, 선호조건.세부지역])
+      }
+    })
+  }
+
+  const 후보 = 후보로(초기매칭.목록)
+  const 처리콜ID = new Set([...완료콜.map((item) => item.콜.콜ID), ...(현재콜 ? [현재콜.콜.콜ID] : [])])
+  const 처리노선 = new Set([...완료콜.map((item) => 노선키(item.콜)), ...(현재콜 ? [노선키(현재콜.콜)] : [])])
+  const 후속후보 = 후보로(후속매칭.목록).filter((item) => !처리콜ID.has(item.콜.콜ID) && !처리노선.has(노선키(item.콜)))
 
   const 선택후보 = 후보.find((item) => item.콜.콜ID === 선택콜ID)
 
   useEffect(() => {
-    if (단계 !== 3 || 상태 === 'loading' || 후보.length === 0) {
+    if (단계 !== 3 || 초기매칭.상태 === 'loading' || 후보.length === 0) {
       set추천알림열림(false)
       return
     }
     const timer = window.setTimeout(() => set추천알림열림(true), 2200)
     return () => window.clearTimeout(timer)
-  }, [단계, 상태, 후보.length, 매칭쿼리])
+  }, [단계, 초기매칭.상태, 후보.length, 매칭쿼리])
+
+  useEffect(() => {
+    if (단계 !== 5 || !현재콜) return
+    set운행진행률(0)
+    set운행알림열림(false)
+    const interval = window.setInterval(() => set운행진행률((value) => Math.min(100, value + 5)), 420)
+    return () => window.clearInterval(interval)
+  }, [단계, 현재콜])
+
+  useEffect(() => {
+    if (단계 !== 5 || !현재콜 || 운행진행률 < 55) return
+    set운행알림열림(true)
+    if (후속콜수 >= 2) return
+    set후속쿼리(후속매칭쿼리문자열(
+      선호조건,
+      현재콜.콜.도착지,
+      [...완료콜.map((item) => item.콜.콜ID), 현재콜.콜.콜ID],
+      [...완료콜.map((item) => 노선키(item.콜)), 노선키(현재콜.콜)],
+    ))
+  }, [단계, 운행진행률, 현재콜, 후속콜수, 선호조건, 완료콜])
+
+  useEffect(() => () => {
+    if (안내타이머.current !== undefined) window.clearTimeout(안내타이머.current)
+    if (잠금타이머.current !== undefined) window.clearTimeout(잠금타이머.current)
+  }, [])
 
   const showNotice = (message: string) => {
+    if (안내타이머.current !== undefined) window.clearTimeout(안내타이머.current)
     set안내(message)
-    window.setTimeout(() => set안내(''), 2200)
+    안내타이머.current = window.setTimeout(() => set안내(''), 2600)
   }
 
   const 이전 = () => {
+    if (단계 >= 5) {
+      showNotice('운행 중에는 이전 단계로 돌아갈 수 없어요.')
+      return
+    }
     if (단계 > 0) set단계((current) => current - 1)
   }
 
-  const 다음 = () => {
-    if (단계 === 5 && 확정중) return
+  const 기본다음 = () => {
     if (단계 === 2) {
       선호조건저장(선호조건)
       set매칭쿼리(매칭쿼리문자열(선호조건))
     }
-    if (단계 === 7) {
-      set단계(0)
-      set매칭쿼리('')
-      set선택콜ID('')
-      set복화선택('')
-      set추천알림열림(false)
-      set확정콜ID('')
-      set확정중(false)
-      확정잠금.current = false
-      set확장오더(등록화물_목록[1]?.id ?? '')
-      return
-    }
     set단계((current) => Math.min(7, current + 1))
+  }
+
+  const 전체초기화 = () => {
+    선호조건초기화()
+    set단계(0); set확장오더(등록화물_목록[1]?.id ?? ''); set프로필열림(false)
+    set선호조건(빈선호조건); set매칭쿼리(''); set후속쿼리(''); set선택콜ID('')
+    set현재콜(undefined); set완료콜([]); set후속콜수(0); set운행진행률(0); set운행알림열림(false)
+    set추천알림열림(false); set확정중(false); set확정콜ID(''); set실패피드백(null); set여정ID(crypto.randomUUID())
+    set메뉴열림(false); set안내(''); set새로고침시각('방금 전'); 확정잠금.current = false
   }
 
   const 추천알림열기 = () => {
@@ -663,15 +702,66 @@ function CarrierScreen() {
     확정잠금.current = true
     set확정중(true)
     set확정콜ID(선택후보.콜.콜ID)
+    set현재콜(선택후보)
     set단계(5)
-    void 수락피드백전송(선택후보.콜.콜ID).then((성공) => {
-      if (!성공) showNotice('운행은 계속됩니다. ACCEPT 피드백은 나중에 다시 저장할게요.')
+    const request = 피드백요청(여정ID, 운송인ID, 선택후보.콜.콜ID, 'ACCEPT')
+    void 피드백전송(request).then((성공) => {
+      if (!성공) { set실패피드백(request); showNotice('ACCEPT 피드백 저장에 실패했지만 운행은 계속됩니다.') }
     }).finally(() => {
-      // 더블클릭의 두 번째 입력이 다음 화면의 버튼으로 전달되지 않게 잠시 유지한다.
-      window.setTimeout(() => {
+      잠금타이머.current = window.setTimeout(() => {
         확정잠금.current = false
         set확정중(false)
       }, 650)
+    })
+  }
+
+  const 현재콜완료처리 = () => {
+    if (!현재콜) return
+    set완료콜((calls) => calls.some((item) => item.콜.콜ID === 현재콜.콜.콜ID) ? calls : [...calls, 현재콜])
+  }
+
+  const 운행알림열기 = () => {
+    if (!현재콜 || 운행진행률 < 55) return
+    현재콜완료처리()
+    set운행알림열림(false)
+    if (후속콜수 >= 2) {
+      set단계(7)
+      return
+    }
+    set단계(6)
+  }
+
+  const 복화수락 = () => {
+    const next = 후속후보[0]
+    if (!next || 확정잠금.current) return
+    확정잠금.current = true
+    set확정중(true)
+    const request = 피드백요청(여정ID, 운송인ID, next.콜.콜ID, 'ACCEPT')
+    const feedback = 피드백전송(request)
+    set현재콜(next)
+    set후속콜수((count) => count + 1)
+    set후속쿼리('')
+    set단계(5)
+    void feedback.then((성공) => {
+      if (!성공) { set실패피드백(request); showNotice('ACCEPT 피드백 저장에 실패했지만 다음 운행을 시작합니다.') }
+    }).finally(() => {
+      잠금타이머.current = window.setTimeout(() => { 확정잠금.current = false; set확정중(false) }, 650)
+    })
+  }
+
+  const 집으로돌아가기 = () => {
+    if (확정잠금.current) return
+    확정잠금.current = true
+    set확정중(true)
+    현재콜완료처리()
+    const rejected = 후속후보[0]
+    const request = rejected ? 피드백요청(여정ID, 운송인ID, rejected.콜.콜ID, 'REJECT') : null
+    const feedback = request ? 피드백전송(request) : Promise.resolve(true)
+    set단계(7)
+    void feedback.then((성공) => {
+      if (!성공 && request) { set실패피드백(request); showNotice('REJECT 피드백 저장에 실패했지만 리포트로 이동했습니다.') }
+    }).finally(() => {
+      잠금타이머.current = window.setTimeout(() => { 확정잠금.current = false; set확정중(false) }, 650)
     })
   }
 
@@ -682,11 +772,23 @@ function CarrierScreen() {
       case 2: return { label: '저장하고 오더 보기', disabled: !선호조건완료인가(선호조건), helper: !선호조건완료인가(선호조건) ? '모든 분류에서 하나 이상 선택해 주세요.' : '조건이 모두 선택됐어요.' }
       case 3: return null
       case 4: return { label: 확정콜ID ? '확정한 콜 경로 보기' : 확정중 ? '콜 확정 중…' : '이 콜 확정하기', disabled: !선택콜ID || 확정중, helper: !선택콜ID ? '운행할 콜을 하나 선택해 주세요.' : undefined }
-      case 5: return { label: 확정중 ? '콜 확정 처리 중…' : '운행 시작하기', disabled: !선택후보 || 확정중, helper: undefined }
-      case 6: return { label: '복화 콜 결정하기', disabled: !복화선택, helper: !복화선택 ? '복화 여부를 선택해 주세요.' : undefined }
-      default: return { label: '새 운행 시작', disabled: false, helper: undefined }
+      case 5: return { label: 운행진행률 >= 55 ? (후속콜수 >= 2 ? '운행 완료하고 리포트 보기' : '다음 콜 후보 보기') : `운행 중 · ${운행진행률}%`, disabled: 운행진행률 < 55, helper: 운행진행률 < 55 ? '55% 이상 운행하면 다음 콜을 확인할 수 있어요.' : undefined }
+      case 6: return null
+      default: return { label: '처음으로', disabled: false, helper: undefined }
     }
   })()
+
+  const actionClick = 단계 === 4 ? 콜확정 : 단계 === 5 ? 운행알림열기 : 단계 === 7 ? 전체초기화 : 기본다음
+
+  const 피드백재시도 = () => {
+    if (!실패피드백) return
+    const request = 실패피드백
+    set실패피드백(null)
+    void 피드백전송(request).then((성공) => {
+      if (성공) showNotice('피드백을 다시 저장했어요.')
+      else { set실패피드백(request); showNotice('피드백 저장에 다시 실패했어요.') }
+    })
+  }
 
   return (
     <div className="carrier-page">
@@ -697,15 +799,16 @@ function CarrierScreen() {
             {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
             {단계 === 1 && <ProfileScreen />}
             {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
-            {단계 === 3 && <OrderBoardScreen candidates={후보} loading={상태 === 'loading'} preferences={선호조건} source={출처} matchQuery={매칭쿼리} />}
+            {단계 === 3 && <OrderBoardScreen candidates={후보} loading={초기매칭.상태 === 'loading'} preferences={선호조건} source={초기매칭.출처} matchQuery={매칭쿼리} errorMessage={초기매칭.오류메시지} onRetry={초기매칭.재시도} />}
             {단계 === 4 && <CompareScreen candidates={후보} selectedId={선택콜ID} onSelect={set선택콜ID} locked={Boolean(확정콜ID)} />}
-            {단계 === 5 && <RouteScreen candidate={선택후보} />}
-            {단계 === 6 && <BackhaulScreen choice={복화선택} onChoice={set복화선택} />}
-            {단계 === 7 && <ReportScreen candidate={선택후보} backhaulChoice={복화선택} />}
+            {단계 === 5 && <RouteScreen candidate={현재콜} progress={운행진행률} />}
+            {단계 === 6 && <BackhaulScreen candidate={후속후보[0]} loading={후속매칭.상태 === 'loading'} source={후속매칭.출처} errorMessage={후속매칭.오류메시지} deciding={확정중} onRetry={후속매칭.재시도} onAccept={복화수락} onHome={집으로돌아가기} />}
+            {단계 === 7 && <ReportScreen calls={완료콜} />}
           </main>
-          {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={단계 === 4 ? 콜확정 : 다음} />}
+          {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} />}
           {단계 === 3 && 추천알림열림 && <CandidateNotification count={Math.min(3, 후보.length)} onOpen={추천알림열기} />}
-          {안내 && <div className="carrier-toast" role="status">{안내}</div>}
+          {단계 === 5 && 운행알림열림 && <CandidateNotification count={후속콜수 >= 2 ? 완료콜.length + 1 : Math.max(1, 후속후보.length)} onOpen={운행알림열기} />}
+          {안내 && <div className="carrier-toast" role="status"><span>{안내}</span>{실패피드백 && <button type="button" onClick={피드백재시도}>다시 시도</button>}</div>}
           <MenuDrawer open={메뉴열림} onClose={() => set메뉴열림(false)} />
         </div>
       </div>

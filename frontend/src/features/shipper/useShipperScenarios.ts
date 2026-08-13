@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { toPredictions } from '../../lib/adapters'
 import { post } from '../../lib/api'
-import type { 모델지표, 화주시나리오 } from '../../lib/types'
 import { modelMetadata as fallbackModelMetadata, scenarioResults as fallbackScenarios } from './shipperData'
 import type { ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
@@ -15,34 +13,27 @@ export interface ShipperScenariosState {
   출처: ShipperScenarioSource
 }
 
-function toScenarioResult(scenario: 화주시나리오): ScenarioResult {
-  return {
-    tonnage: scenario.톤급,
-    windowMinutes: scenario.시간창_분,
-    availableDrivers: scenario.수락가능차주,
-    estimatedFare: scenario.예측_운임,
-    dispatchMinutes: scenario.예측_배차분,
-    failureProbability: scenario.유찰확률,
-  }
+interface ApiShipperScenario {
+  tonnage: ScenarioResult['tonnage']
+  timeWindowMinutes: ScenarioResult['windowMinutes']
+  availableDrivers: number
+  estimatedFareWon: number
+  estimatedDispatchMinutes: number
+  failureProbability: number
 }
 
-function toModelMetadata(metrics: 모델지표, scenarioRows: number): ShipperModelMetadata {
-  return {
-    scenarioRows,
-    trainingRows: metrics.학습행수,
-    acceptanceAuc: metrics.수락예측_AUC,
-    failureAuc: metrics.유찰예측_AUC,
-  }
+interface ApiShipperResponse {
+  shipperScenarios: ApiShipperScenario[]
+  modelMetrics: { trainingRows: number; acceptanceAuc: number; failureAuc: number }
 }
 
-function scenarioKey(scenario: Pick<ScenarioResult, 'tonnage' | 'windowMinutes'>) {
-  return `${scenario.tonnage}:${scenario.windowMinutes}`
-}
-
-/** API에 일부 조합만 있어도 누락된 축만 기존 15개 폴백으로 채운다. */
-function withMissingFallbacks(apiScenarios: ScenarioResult[]): ScenarioResult[] {
-  const byKey = new Map(apiScenarios.map((scenario) => [scenarioKey(scenario), scenario]))
-  return fallbackScenarios.map((fallback) => byKey.get(scenarioKey(fallback)) ?? fallback)
+function api응답인가(value: unknown): value is ApiShipperResponse {
+  if (typeof value !== 'object' || value === null) return false
+  const response = value as Partial<ApiShipperResponse>
+  return Array.isArray(response.shipperScenarios) && response.shipperScenarios.length > 0 &&
+    typeof response.modelMetrics?.trainingRows === 'number' &&
+    typeof response.modelMetrics.acceptanceAuc === 'number' &&
+    typeof response.modelMetrics.failureAuc === 'number'
 }
 
 export function useShipperScenarios(): ShipperScenariosState {
@@ -63,21 +54,23 @@ export function useShipperScenarios(): ShipperScenariosState {
       출처: '폴백',
     })
 
-    post<unknown>('/v1/matches/shipper', {})
+    post<unknown>('/api/v1/matches/shipper', {}, { signal: controller.signal })
       .then((raw) => {
         if (controller.signal.aborted) return
-        const predictions = toPredictions(raw)
-        const apiScenarios = predictions.화주_시나리오.map(toScenarioResult)
-        const hasApiScenarios = apiScenarios.length > 0
+        if (!api응답인가(raw)) throw new Error('INVALID_API_RESPONSE')
 
         setState({
-          scenarios: hasApiScenarios ? withMissingFallbacks(apiScenarios) : fallbackScenarios,
-          modelMetadata: toModelMetadata(
-            predictions.모델지표,
-            hasApiScenarios ? apiScenarios.length : fallbackScenarios.length,
-          ),
+          scenarios: raw.shipperScenarios.map((scenario) => ({
+            tonnage: scenario.tonnage,
+            windowMinutes: scenario.timeWindowMinutes,
+            availableDrivers: scenario.availableDrivers,
+            estimatedFare: scenario.estimatedFareWon,
+            dispatchMinutes: scenario.estimatedDispatchMinutes,
+            failureProbability: scenario.failureProbability,
+          })),
+          modelMetadata: { ...raw.modelMetrics, scenarioRows: raw.shipperScenarios.length },
           상태: 'ready',
-          출처: hasApiScenarios ? 'api' : '폴백',
+          출처: 'api',
         })
       })
       .catch(() => {

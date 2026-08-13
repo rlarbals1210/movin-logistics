@@ -1374,6 +1374,94 @@ textarea:focus-visible {
   height: 100%;
 }
 
+.kakao-map-wrap,
+.kakao-map-canvas {
+  width: 100%;
+  height: 230px;
+}
+
+.carrier-map-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(244, 246, 245, 0.9);
+  color: #616566;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.kakao-map-label {
+  display: inline-flex;
+  padding: 4px 7px;
+  border: 1px solid #dfe2e3;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(20, 22, 23, 0.14);
+  color: #171818;
+  font-size: 10px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.kakao-map-label.pickup { border-color: #e3cd00; }
+.kakao-map-label.dropoff { border-color: #2ab672; }
+
+.carrier-route-map.is-fallback > p {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #565a5b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.carrier-map-retry {
+  width: 100%;
+  margin-top: 7px;
+  padding: 9px;
+  border: 1px solid #d9dcdd;
+  border-radius: 9px;
+  background: #fff;
+  color: #444849;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.carrier-drive-progress {
+  margin: 12px 0 4px;
+}
+
+.carrier-drive-progress > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+
+.carrier-drive-progress > div b { color: #347ce9; }
+
+.carrier-drive-progress > span {
+  display: block;
+  overflow: hidden;
+  height: 7px;
+  border-radius: 99px;
+  background: #e7e9ea;
+}
+
+.carrier-drive-progress > span i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #347ce9, #2ab672);
+  transition: width 300ms ease;
+}
+
 .carrier-route-map .street {
   fill: none;
   stroke: #d8dddb;
@@ -1487,6 +1575,62 @@ textarea:focus-visible {
   gap: 11px;
   margin-top: 22px;
 }
+
+.carrier-next-call-card,
+.carrier-empty-call {
+  margin-top: 20px;
+  padding: 17px;
+  border: 1px solid #dfe2e3;
+  border-radius: 14px;
+  background: #fff;
+  text-align: left;
+}
+
+.carrier-next-call-card > small { color: #887b00; font-size: 9px; font-weight: 850; }
+.carrier-next-call-card h2 { margin: 6px 0; font-size: 15px; }
+.carrier-next-call-card > p { margin: 0 0 12px; color: #747879; font-size: 10px; }
+.carrier-next-call-card > div:not(.carrier-candidate-labels) { display: flex; align-items: baseline; justify-content: space-between; padding: 10px; border-radius: 9px; background: #f3f4f4; }
+.carrier-next-call-card > div span { color: #676b6c; font-size: 10px; }
+.carrier-next-call-card > div strong { font-size: 17px; }
+
+.carrier-empty-call { background: #f6f7f7; text-align: center; }
+.carrier-empty-call strong { font-size: 13px; }
+.carrier-empty-call p { margin: 5px 0 0; color: #747879; font-size: 10px; }
+
+.carrier-backhaul-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.carrier-backhaul-actions button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: #fee500;
+  color: #181919;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.carrier-backhaul-actions button:last-child { border: 1px solid #d8dbdc; background: #fff; }
+.carrier-backhaul-actions button:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.carrier-api-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 11px;
+  border-radius: 9px;
+  background: #fff7e8;
+  color: #6f571d;
+}
+
+.carrier-api-fallback p { margin: 0; font-size: 9px; line-height: 1.4; }
+.carrier-api-fallback button { flex: none; padding: 7px 8px; border: 1px solid #c6a64d; border-radius: 7px; background: #fff; color: #5a4512; font-size: 9px; font-weight: 800; }
 
 .carrier-backhaul-list > button {
   display: grid;
@@ -1643,6 +1787,24 @@ textarea:focus-visible {
   font-size: 12px;
   text-align: center;
   animation: carrier-toast-in 180ms ease-out;
+}
+
+.carrier-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.carrier-toast button {
+  flex: none;
+  padding: 6px 8px;
+  border: 1px solid #fee500;
+  border-radius: 7px;
+  background: transparent;
+  color: #fee500;
+  font-size: 9px;
+  font-weight: 850;
 }
 
 @keyframes carrier-toast-in {

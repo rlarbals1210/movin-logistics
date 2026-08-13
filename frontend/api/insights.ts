@@ -160,6 +160,7 @@ export default async function handler(req: Request): Promise<Response> {
   const apiKey = process.env.GEMINI_API_KEY?.trim()
   if (!apiKey) return Response.json(EMPTY_RESPONSE)
 
+  let aiTimeout: ReturnType<typeof setTimeout> | undefined
   try {
     const body: unknown = await req.json()
     if (!isRecord(body)) return Response.json(EMPTY_RESPONSE)
@@ -169,6 +170,8 @@ export default async function handler(req: Request): Promise<Response> {
     if (!audience || !isRecord(facts)) return Response.json(EMPTY_RESPONSE)
 
     const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL
+    const controller = new AbortController()
+    aiTimeout = setTimeout(() => controller.abort(), 7_000)
     const response = await fetch(
       `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`,
       {
@@ -186,9 +189,9 @@ export default async function handler(req: Request): Promise<Response> {
             thinkingConfig: { thinkingLevel: 'low' },
           },
         }),
+        signal: controller.signal,
       },
     )
-
     if (!response.ok) return Response.json(EMPTY_RESPONSE)
 
     const payload = (await response.json()) as GeminiResponse
@@ -201,5 +204,7 @@ export default async function handler(req: Request): Promise<Response> {
     return Response.json({ text })
   } catch {
     return Response.json(EMPTY_RESPONSE)
+  } finally {
+    if (aiTimeout !== undefined) clearTimeout(aiTimeout)
   }
 }

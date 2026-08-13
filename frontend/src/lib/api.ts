@@ -29,23 +29,52 @@ export const API_BASE = resolveApiBase()
 
 class ApiError extends Error {
   readonly status: number
+  readonly requestId: string | null
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, requestId: string | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.requestId = requestId
   }
 }
 
+const NETWORK_TIMEOUT_MS = 15_000
+
+interface ApiErrorBody {
+  error?: { message?: unknown; requestId?: unknown }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-  })
-  if (!res.ok) {
-    throw new ApiError(`${init?.method ?? 'GET'} ${path} 실패`, res.status)
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort('timeout'), NETWORK_TIMEOUT_MS)
+  const externalSignal = init?.signal
+  const abortFromExternal = () => controller.abort(externalSignal?.reason)
+  externalSignal?.addEventListener('abort', abortFromExternal, { once: true })
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', ...init?.headers },
+    })
+    if (!res.ok) {
+      let body: ApiErrorBody = {}
+      try { body = await res.json() as ApiErrorBody } catch { /* 응답 본문이 없을 수 있다. */ }
+      const serverMessage = typeof body.error?.message === 'string' ? body.error.message : null
+      const requestId = typeof body.error?.requestId === 'string' ? body.error.requestId : null
+      throw new ApiError(serverMessage ?? '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.', res.status, requestId)
+    }
+    return await res.json() as T
+  } catch (error) {
+    if (controller.signal.aborted && !externalSignal?.aborted) {
+      throw new ApiError('응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.', 408)
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+    externalSignal?.removeEventListener('abort', abortFromExternal)
   }
-  return res.json() as Promise<T>
 }
 
 /** `init` 은 AbortController 용이다 — 화면이 언마운트되면 요청을 끊는다 */
@@ -53,8 +82,8 @@ export function get<T>(path: string, init?: RequestInit): Promise<T> {
   return request<T>(path, init)
 }
 
-export function post<T>(path: string, body: unknown): Promise<T> {
-  return request<T>(path, { method: 'POST', body: JSON.stringify(body) })
+export function post<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+  return request<T>(path, { ...init, method: 'POST', body: JSON.stringify(body) })
 }
 
 /**
@@ -70,12 +99,17 @@ export function post<T>(path: string, body: unknown): Promise<T> {
 export async function fetchInsights(body: {
   audience: 'SHIPPER' | 'CARRIER'
   facts: unknown
-}): Promise<InsightsResponse> {
+}, signal?: AbortSignal): Promise<InsightsResponse> {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort('insight-timeout'), 7_000)
+  const abortFromExternal = () => controller.abort(signal?.reason)
+  signal?.addEventListener('abort', abortFromExternal, { once: true })
   try {
     const res = await fetch('/api/insights', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: controller.signal,
     })
     if (!res.ok) return { text: '' }
     const data: unknown = await res.json()
@@ -83,6 +117,9 @@ export async function fetchInsights(body: {
     return { text: typeof text === 'string' ? text : '' }
   } catch {
     return { text: '' }
+  } finally {
+    window.clearTimeout(timeout)
+    signal?.removeEventListener('abort', abortFromExternal)
   }
 }
 
@@ -91,7 +128,7 @@ export async function fetchInsights(body: {
  * 앱 뜨자마자 한 번 부른다. 실패해도 무시한다 — 예열이 목적이다.
  */
 export function warmUpApi(): void {
-  void fetch(`${API_BASE}/health`).catch(() => {})
+  void fetch(`${API_BASE}/api/health`).catch(() => {})
 }
 
 export { ApiError }

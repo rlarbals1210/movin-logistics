@@ -47,20 +47,18 @@ export function useInsight(audience: InsightAudience, facts: unknown, 사용 = t
       return
     }
 
-    let 취소됨 = false
+    const controller = new AbortController()
     setState({ text: '', 로딩중: true })
 
-    fetchInsights({ audience, facts: JSON.parse(키) as unknown })
+    fetchInsights({ audience, facts: JSON.parse(키) as unknown }, controller.signal)
       .then((res) => {
-        if (!취소됨) setState({ text: res.text, 로딩중: false })
+        if (!controller.signal.aborted) setState({ text: res.text, 로딩중: false })
       })
       .catch(() => {
-        if (!취소됨) setState({ text: '', 로딩중: false })
+        if (!controller.signal.aborted) setState({ text: '', 로딩중: false })
       })
 
-    return () => {
-      취소됨 = true
-    }
+    return () => controller.abort()
   }, [audience, 키])
 
   return state

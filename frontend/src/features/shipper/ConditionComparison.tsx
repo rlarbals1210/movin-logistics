@@ -162,6 +162,7 @@ function ToggleRow({
 }
 
 function DeltaBars({ current, adjusted }: { current: ScenarioResult; adjusted: ScenarioResult }) {
+  const minuteDelta = Math.round(Math.abs(adjusted.dispatchMinutes - current.dispatchMinutes) * 10) / 10
   const changes = [
     {
       label: '차주 변화',
@@ -187,7 +188,7 @@ function DeltaBars({ current, adjusted }: { current: ScenarioResult; adjusted: S
       adjusted: adjusted.dispatchMinutes,
       currentText: `${current.dispatchMinutes}분`,
       adjustedText: `${adjusted.dispatchMinutes}분`,
-      delta: `${adjusted.dispatchMinutes <= current.dispatchMinutes ? '-' : '+'}${Math.abs(adjusted.dispatchMinutes - current.dispatchMinutes)}분`,
+      delta: `${adjusted.dispatchMinutes <= current.dispatchMinutes ? '-' : '+'}${minuteDelta}분`,
       better: adjusted.dispatchMinutes <= current.dispatchMinutes,
     },
     {
@@ -251,6 +252,7 @@ function DecisionDialog({
 }) {
   const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
   const noChange = current.windowMinutes === adjusted.windowMinutes
+  const minuteDelta = Math.round(Math.abs(adjusted.dispatchMinutes - current.dispatchMinutes) * 10) / 10
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-xl" role="presentation">
@@ -333,8 +335,8 @@ function DecisionDialog({
               <div className="mt-lg"><DeltaBars current={current} adjusted={adjusted} /></div>
               <p className="mt-lg rounded-xl bg-surface-container-low p-md text-body-md font-bold leading-6 text-secondary">
                 {adjusted.dispatchMinutes > current.dispatchMinutes
-                  ? `이 원본 조합에서는 후보와 운임은 개선되지만 예상 배차시간은 ${adjusted.dispatchMinutes - current.dispatchMinutes}분 늘어납니다. 어느 지표를 우선할지 직접 선택하세요.`
-                  : `이 원본 조합에서는 예상 배차시간이 ${current.dispatchMinutes - adjusted.dispatchMinutes}분 단축됩니다. 최종 선택은 화주/주선사가 결정합니다.`}
+                  ? `이 원본 조합에서는 후보와 운임은 개선되지만 예상 배차시간은 ${minuteDelta}분 늘어납니다. 어느 지표를 우선할지 직접 선택하세요.`
+                  : `이 원본 조합에서는 예상 배차시간이 ${minuteDelta}분 단축됩니다. 최종 선택은 화주/주선사가 결정합니다.`}
               </p>
             </div>
 
