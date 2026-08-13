@@ -334,7 +334,17 @@ function CallsLoading() {
   return <div className="carrier-loading-list" aria-label="오더 불러오는 중" aria-busy="true">{[0, 1, 2].map((n) => <div key={n}><span /><span /><span /></div>)}</div>
 }
 
-function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery, errorMessage, onRetry }: { candidates: 계산후보[]; loading: boolean; preferences: CarrierPreferences; source: 'api' | '폴백'; matchQuery: string; errorMessage: string; onRetry: () => void }) {
+/** 폴백 데이터를 보여주는 중이라는 고지. 자동 재시도가 걸려 있으면 그 사실을 대신 알린다. */
+function ApiFallbackNotice({ message, retrying, onRetry }: { message: string; retrying: boolean; onRetry: () => void }) {
+  return (
+    <div className="carrier-api-fallback" role="status">
+      <p>{retrying ? <><span className="mv-spin" aria-hidden="true" /> 연결이 끊겨 자동으로 다시 불러오는 중이에요…</> : message}</p>
+      <button type="button" onClick={onRetry}>다시 시도</button>
+    </div>
+  )
+}
+
+function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery, errorMessage, retrying, onRetry }: { candidates: 계산후보[]; loading: boolean; preferences: CarrierPreferences; source: 'api' | '폴백'; matchQuery: string; errorMessage: string; retrying: boolean; onRetry: () => void }) {
   return (
     <div className="carrier-screen carrier-board-screen" data-match-query={matchQuery}>
       <h1>조건에 맞는 오더를<br />찾았어요</h1>
@@ -352,7 +362,7 @@ function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery
           ))}
         </div>
       )}
-      {source === '폴백' && <div className="carrier-api-fallback"><p>{errorMessage || '현재 결정론적 예시 오더를 표시하고 있어요.'}</p><button type="button" onClick={onRetry}>다시 시도</button></div>}
+      {source === '폴백' && <ApiFallbackNotice message={errorMessage || '현재 결정론적 예시 오더를 표시하고 있어요.'} retrying={retrying} onRetry={onRetry} />}
     </div>
   )
 }
@@ -496,7 +506,7 @@ function RouteScreen({ candidate, progress }: { candidate?: 계산후보; progre
   )
 }
 
-function BackhaulScreen({ candidate, loading, source, errorMessage, deciding, onRetry, onAccept, onHome }: { candidate?: 계산후보; loading: boolean; source: 'api' | '폴백'; errorMessage: string; deciding: boolean; onRetry: () => void; onAccept: () => void; onHome: () => void }) {
+function BackhaulScreen({ candidate, loading, source, errorMessage, retrying, deciding, onRetry, onAccept, onHome }: { candidate?: 계산후보; loading: boolean; source: 'api' | '폴백'; errorMessage: string; retrying: boolean; deciding: boolean; onRetry: () => void; onAccept: () => void; onHome: () => void }) {
   return (
     <div className="carrier-screen carrier-backhaul-screen">
       <h1>현재 위치 기준<br />다음 추천 콜</h1>
@@ -510,7 +520,7 @@ function BackhaulScreen({ candidate, loading, source, errorMessage, deciding, on
           <div className="carrier-candidate-labels">{candidate.콜.태그.map((tag) => <span key={tag} className="is-tag">{tag}</span>)}</div>
         </article>
       ) : <div className="carrier-empty-call"><strong>추천 가능한 다음 콜이 없어요.</strong><p>현재 운행을 마치고 리포트로 이동할 수 있어요.</p></div>}
-      {source === '폴백' && <div className="carrier-api-fallback"><p>{errorMessage || '결정론적 예시 후보를 표시하고 있어요.'}</p><button type="button" onClick={onRetry}>다시 시도</button></div>}
+      {source === '폴백' && <ApiFallbackNotice message={errorMessage || '결정론적 예시 후보를 표시하고 있어요.'} retrying={retrying} onRetry={onRetry} />}
       <div className="carrier-backhaul-actions">
         <button type="button" disabled={!candidate || deciding} onClick={onAccept}>{deciding && <span className="mv-spin" aria-hidden="true" />} {deciding ? '처리 중…' : '수락하고 다음 운행'}</button>
         <button type="button" disabled={deciding} onClick={onHome}>집으로 돌아가기</button>
@@ -801,10 +811,10 @@ function CarrierScreen() {
               {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
               {단계 === 1 && <ProfileScreen />}
               {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
-              {단계 === 3 && <OrderBoardScreen candidates={후보} loading={초기매칭.상태 === 'loading'} preferences={선호조건} source={초기매칭.출처} matchQuery={매칭쿼리} errorMessage={초기매칭.오류메시지} onRetry={초기매칭.재시도} />}
+              {단계 === 3 && <OrderBoardScreen candidates={후보} loading={초기매칭.상태 === 'loading'} preferences={선호조건} source={초기매칭.출처} matchQuery={매칭쿼리} errorMessage={초기매칭.오류메시지} retrying={초기매칭.재시도중} onRetry={초기매칭.재시도} />}
               {단계 === 4 && <CompareScreen candidates={후보} selectedId={선택콜ID} onSelect={set선택콜ID} locked={Boolean(확정콜ID)} />}
               {단계 === 5 && <RouteScreen candidate={현재콜} progress={운행진행률} />}
-              {단계 === 6 && <BackhaulScreen candidate={후속후보[0]} loading={후속매칭.상태 === 'loading'} source={후속매칭.출처} errorMessage={후속매칭.오류메시지} deciding={확정중} onRetry={후속매칭.재시도} onAccept={복화수락} onHome={집으로돌아가기} />}
+              {단계 === 6 && <BackhaulScreen candidate={후속후보[0]} loading={후속매칭.상태 === 'loading'} source={후속매칭.출처} errorMessage={후속매칭.오류메시지} retrying={후속매칭.재시도중} deciding={확정중} onRetry={후속매칭.재시도} onAccept={복화수락} onHome={집으로돌아가기} />}
               {단계 === 7 && <ReportScreen calls={완료콜} />}
             </main>
             {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} pending={단계 === 4 && 확정중} />}
