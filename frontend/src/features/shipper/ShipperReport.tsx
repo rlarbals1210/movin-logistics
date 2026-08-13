@@ -131,25 +131,22 @@ function ReportContent({ form, scenarios, modelMetadata, options, decision, comp
             <span className="material-symbols-outlined text-[30px] text-[#007a5a]" aria-hidden="true">eco</span>
           </div>
           <div className="mt-lg grid grid-cols-3 gap-md">
-            <div><p className="text-label-sm text-secondary">총 감축량</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">월간 ΔE 합계</p></div>
-            <div><p className="text-label-sm text-secondary">건당 감축</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">오더별 ΔE</p></div>
-            <div><p className="text-label-sm text-secondary">감축률</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">ΔE ÷ E_baseline × 100</p></div>
+            <div><p className="text-label-sm text-secondary">총 감축량</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">월간 탄소 감축량 합계</p></div>
+            <div><p className="text-label-sm text-secondary">건당 감축</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">오더별 탄소 감축량</p></div>
+            <div><p className="text-label-sm text-secondary">감축률</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">탄소감축량 ÷ 기존 배출량 × 100</p></div>
           </div>
           <div className="mt-lg rounded-xl bg-surface-container-low p-md">
-            <p className="text-label-sm font-black text-on-surface">탄소 배출 감축량 식</p>
-            <div className="mt-sm space-y-xs font-mono text-label-sm leading-5 text-secondary">
-              <p>ΔE = E_baseline − E_matched</p>
-              <p>E_baseline = D × EF_empty + (D × EF_loaded + D_dh × EF_empty)</p>
-              <p>E_matched = D × EF_loaded</p>
-              <p className="font-black text-on-surface">ΔE = D × EF_empty + D_dh × EF_empty</p>
-            </div>
-            <div className="mt-md grid grid-cols-3 gap-sm border-t border-outline-variant pt-md text-label-sm leading-5 text-secondary">
-              <p><strong className="block text-on-surface">D</strong>매칭된 구간 거리(km)</p>
-              <p><strong className="block text-on-surface">D_dh</strong>별도 차량의 접근 공차(km)</p>
-              <p><strong className="block text-on-surface">EF</strong>vehicle·km 기준 배출계수</p>
-            </div>
-            <p className="mt-md text-label-sm leading-5 text-secondary">
-              노선 거리, 별도 차량의 접근 공차거리, 차량별 적재·공차 배출계수가 연결되면 수치를 표시합니다. 현재는 값이 없어 임의 수치를 만들지 않습니다.
+            <p className="text-label-sm font-black text-on-surface">탄소 감축량은 어떻게 계산되나요?</p>
+            <p className="mt-sm text-label-sm leading-5 text-secondary">
+              플랫폼을 통한 탄소 감축량은 플랫폼이 없었을 때 발생했을 기존 배출량에서 매칭 후 실제 발생한 배출량을 빼서 계산합니다.
+            </p>
+            <ul className="mt-sm space-y-xs text-label-sm leading-5 text-secondary">
+              <li><strong className="text-on-surface">기존 배출량 예측:</strong> 화물 운송 배출량 + 빈 차로 복귀하는 배출량 + 다음 짐을 찾기 위해 이동하는 배출량</li>
+              <li><strong className="text-on-surface">매칭 후 배출량:</strong> 빈 차 이동 없이 꽉 채워서 운송한 배출량</li>
+              <li><strong className="text-on-surface">최종 감축량:</strong> 매칭을 통해 완전히 없애버린 빈 차 이동 거리에 해당하는 탄소 배출량</li>
+            </ul>
+            <p className="mt-md border-t border-outline-variant pt-md text-center font-mono text-label-md font-black text-on-surface">
+              ΔE = D × EF_empty + D_dh × EF_empty
             </p>
           </div>
         </section>
