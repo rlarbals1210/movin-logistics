@@ -33,9 +33,30 @@ export function post<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: 'POST', body: JSON.stringify(body) })
 }
 
-/** Gemini 한 줄 코멘트. 점심에 api/insights.ts 를 채우면 동작한다 */
-export function fetchInsights(body: InsightsRequest): Promise<InsightsResponse> {
-  return post<InsightsResponse>('/api/insights', body)
+/**
+ * Gemini 한 줄 코멘트.
+ *
+ * `post()` 를 쓰지 않는다. 매칭 API 는 Railway(`API_BASE`)에 있지만 이 함수는
+ * Vercel 서버리스(`frontend/api/insights.ts`)라 **프론트와 같은 오리진**이다.
+ * `API_BASE` 를 붙이면 Railway 로 가서 404 가 난다.
+ *
+ * 실패는 전부 빈 문자열로 흡수한다. 핸들러도 6개 경로 모두 `{ text: '' }` 로
+ * 떨어지므로, 호출부는 text 가 비면 영역을 숨기기만 하면 된다.
+ */
+export async function fetchInsights(body: InsightsRequest): Promise<InsightsResponse> {
+  try {
+    const res = await fetch('/api/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) return { text: '' }
+    const data: unknown = await res.json()
+    const text = typeof data === 'object' && data !== null ? (data as InsightsResponse).text : ''
+    return { text: typeof text === 'string' ? text : '' }
+  } catch {
+    return { text: '' }
+  }
 }
 
 /**
