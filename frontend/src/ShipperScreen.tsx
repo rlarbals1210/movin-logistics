@@ -1,15 +1,36 @@
 import { useState } from 'react'
+import CallRegistration from './features/shipper/CallRegistration'
+import ConditionComparison from './features/shipper/ConditionComparison'
 import PreferenceSetup from './features/shipper/PreferenceSetup'
+import ShipperProfile from './features/shipper/ShipperProfile'
+import ShipperReport from './features/shipper/ShipperReport'
+import {
+  addDaysToDate,
+  adjustedWindowLabel,
+  callFieldCompletion,
+  formatDate,
+  getCurrentScenario,
+  getNextRelaxedWindow,
+  getSelectedCargo,
+  getSelectedLocation,
+  getSelectedVehicle,
+  minutesToTime,
+} from './features/shipper/shipperModel'
 import {
   preferenceGroups,
   type PreferenceGroupId,
   type PreferenceSelections,
 } from './features/shipper/shipperPreferences'
-
-type TabId = 'settings' | 'register' | 'compare' | 'report' | 'profile'
+import {
+  emptyCallForm,
+  type CallForm,
+  type ComparisonOptions,
+  type DispatchDecision,
+  type ShipperTabId,
+} from './features/shipper/shipperTypes'
 
 type ShipperTab = {
-  id: TabId
+  id: ShipperTabId
   label: string
   icon: string
 }
@@ -28,36 +49,51 @@ const initialSelections: PreferenceSelections = {
   carrier: [],
 }
 
-const dispatchFields = [
-  ['배차번호', '미입력'],
-  ['출발지', '미입력'],
-  ['도착지', '미입력'],
-  ['차량', '미선택'],
-  ['품목', '미입력'],
-  ['상차 날짜', '미선택'],
-  ['상차 시간', '미선택'],
-] as const
+const initialComparisonOptions: ComparisonOptions = {
+  allowVehicleSubstitution: false,
+  allowDateDelay: false,
+  relaxedWindowMinutes: 240,
+}
 
 function SelectionValue({ values }: { values: string[] }) {
-  if (values.length === 0) {
-    return <span className="font-bold text-secondary">미선택</span>
-  }
-
+  if (values.length === 0) return <span className="font-bold text-secondary">미선택</span>
   return <span className="font-bold text-on-surface">{values.join(' · ')}</span>
 }
 
 function DecisionSummary({
   selections,
   answeredCount,
+  form,
+  decision,
+  options,
 }: {
   selections: PreferenceSelections
   answeredCount: number
+  form: CallForm
+  decision: DispatchDecision
+  options: ComparisonOptions
 }) {
+  const adjusted = decision === 'adjusted'
+  const effectiveDate = adjusted && options.allowDateDelay ? addDaysToDate(form.loadingDate, 1) : form.loadingDate
+  const effectiveTime = adjusted
+    ? adjustedWindowLabel(form, options.relaxedWindowMinutes)
+    : `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`
+  const route = [
+    getSelectedLocation(form.originRegion, form.originDetail, form.originCustom),
+    getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom),
+  ]
+  const callItems = [
+    ['노선', route.every(Boolean) ? route.join(' → ') : '미선택'],
+    ['차량', getSelectedVehicle(form) || '미선택'],
+    ['품목', getSelectedCargo(form) || '미선택'],
+    ['상차', effectiveDate ? `${formatDate(effectiveDate)} ${effectiveTime}${adjusted ? ' · 조정안' : ''}` : '미선택'],
+  ]
+
   return (
-    <aside className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg shadow-[0_2px_8px_rgba(26,28,28,0.04)] xl:sticky xl:top-[88px] xl:h-fit">
+    <aside className="sticky top-[88px] h-fit rounded-2xl border border-outline-variant bg-white p-lg shadow-[0_2px_8px_rgba(26,28,28,0.04)]">
       <div className="flex items-start justify-between gap-md">
         <div>
-          <h2 className="text-headline-sm font-bold text-on-surface">실시간 결정 요약</h2>
+          <h2 className="text-headline-sm font-black text-on-surface">실시간 결정 요약</h2>
           <p className="mt-xs text-body-md text-secondary">선택 즉시 반영됩니다.</p>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container text-on-primary-fixed">
@@ -67,7 +103,7 @@ function DecisionSummary({
 
       <div className="my-lg h-px bg-outline-variant" />
 
-      <div className="space-y-lg">
+      <div className="space-y-md">
         {preferenceGroups.map((group) => (
           <div key={group.id} className="flex gap-md">
             <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-sm font-black ${
@@ -79,209 +115,107 @@ function DecisionSummary({
             </div>
             <div className="min-w-0">
               <p className="text-label-sm text-secondary">{group.title}</p>
-              <p className="mt-xs break-words text-body-md">
-                <SelectionValue values={selections[group.id]} />
-              </p>
+              <p className="mt-xs break-words text-body-md"><SelectionValue values={selections[group.id]} /></p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-xl rounded-xl bg-surface-container-low p-md">
+      <div className="my-lg h-px bg-outline-variant" />
+
+      <div className="space-y-md">
+        <p className="text-label-sm font-black text-on-surface">현재 콜</p>
+        {callItems.map(([label, value]) => (
+          <div key={label}>
+            <p className="text-label-sm text-secondary">{label}</p>
+            <p className={`mt-xs text-body-md font-bold ${value === '미선택' ? 'text-secondary' : 'text-on-surface'}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-lg rounded-xl bg-surface-container-low p-md">
         <div className="flex items-center justify-between">
           <span className="text-label-sm text-secondary">필수 설정</span>
           <strong className="text-label-md text-on-surface">{answeredCount}/3</strong>
         </div>
         <div className="mt-sm h-2 overflow-hidden rounded-full bg-surface-container-high">
-          <div
-            className="h-full rounded-full bg-primary-container transition-[width] duration-300"
-            style={{ width: `${Math.round((answeredCount / 3) * 100)}%` }}
-          />
+          <div className="h-full rounded-full bg-primary-container transition-[width] duration-300" style={{ width: `${Math.round(answeredCount / 3 * 100)}%` }} />
         </div>
+      </div>
+
+      <div className="mt-md flex items-center justify-between rounded-xl bg-on-secondary-fixed p-md">
+        <span className="text-label-sm text-secondary-fixed-dim">최근 선택</span>
+        <strong className="text-label-sm text-primary-fixed">
+          {decision === 'adjusted' ? '조정안 등록' : decision === 'current' ? '현재 조건 유지' : '미선택'}
+        </strong>
       </div>
     </aside>
   )
 }
 
-function CurrentDispatch({ activeTab }: { activeTab: TabId }) {
-  const statusByTab: Record<TabId, string> = {
+function CurrentDispatch({ activeTab, form, decision, options }: { activeTab: ShipperTabId; form: CallForm; decision: DispatchDecision; options: ComparisonOptions }) {
+  const completion = callFieldCompletion(form)
+  const adjusted = decision === 'adjusted'
+  const effectiveDate = adjusted && options.allowDateDelay ? addDaysToDate(form.loadingDate, 1) : form.loadingDate
+  const effectiveTime = adjusted
+    ? adjustedWindowLabel(form, options.relaxedWindowMinutes)
+    : `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`
+  const statusByTab: Record<ShipperTabId, string> = {
     settings: '필수 설정 중',
-    register: '콜 등록 전',
-    compare: '조정안 미선택',
-    report: '배차 완료 후 제공',
+    register: completion === 6 ? '조건 비교 가능' : `콜 정보 ${completion}/6`,
+    compare: decision ? '진행 조건 선택 완료' : '조정안 검토 전',
+    report: decision ? '운송인 응답 대기' : '등록 결과 대기',
     profile: '기본정보 확인 중',
   }
+  const fields = [
+    ['배차번호', decision ? 'MVN-260813-042' : '미발급'],
+    ['출발지', getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미선택'],
+    ['도착지', getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미선택'],
+    ['차량', getSelectedVehicle(form) || '미선택'],
+    ['품목', getSelectedCargo(form) || '미선택'],
+    ['상차 날짜', effectiveDate ? `${formatDate(effectiveDate)}${adjusted && options.allowDateDelay ? ' · 하루 연기' : ''}` : '미선택'],
+    ['상차 시간', effectiveDate ? effectiveTime : '미선택'],
+  ]
 
   return (
-    <section aria-labelledby="current-dispatch-title" className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg shadow-[0_2px_8px_rgba(26,28,28,0.04)] md:p-xl">
-      <div className="flex flex-col gap-sm border-b border-outline-variant pb-md sm:flex-row sm:items-center sm:justify-between">
+    <section aria-labelledby="current-dispatch-title" className="rounded-2xl border border-outline-variant bg-white p-xl shadow-[0_2px_8px_rgba(26,28,28,0.04)]">
+      <div className="flex items-center justify-between gap-lg border-b border-outline-variant pb-md">
         <div>
-          <h2 id="current-dispatch-title" className="text-headline-sm font-bold text-on-surface">현재 배차 정보</h2>
+          <h2 id="current-dispatch-title" className="text-headline-sm font-black text-on-surface">현재 배차 정보</h2>
           <p className="mt-xs text-body-md text-secondary">모든 화주 탭에서 동일하게 표시됩니다.</p>
         </div>
-        <span className="inline-flex w-fit items-center gap-xs rounded-full bg-surface-container px-md py-sm text-label-sm font-bold text-on-surface">
+        <span className="inline-flex items-center gap-xs rounded-full bg-surface-container px-md py-sm text-label-sm font-bold text-on-surface">
           <span className="h-2 w-2 rounded-full bg-primary-container" />
           {statusByTab[activeTab]}
         </span>
       </div>
 
-      <dl className="mt-lg grid grid-cols-2 gap-x-lg gap-y-md lg:grid-cols-4">
-        {dispatchFields.map(([label, value]) => (
+      <dl className="mt-lg grid grid-cols-4 gap-x-lg gap-y-md">
+        {fields.map(([label, value]) => (
           <div key={label}>
             <dt className="text-label-sm text-secondary">{label}</dt>
-            <dd className="mt-xs text-body-md font-bold text-on-surface">{value}</dd>
+            <dd className={`mt-xs text-body-md font-black ${value.includes('미') ? 'text-secondary' : 'text-on-surface'}`}>{value}</dd>
           </div>
         ))}
         <div>
           <dt className="text-label-sm text-secondary">현재 상태</dt>
-          <dd className="mt-xs text-body-md font-bold text-on-surface">{statusByTab[activeTab]}</dd>
+          <dd className="mt-xs text-body-md font-black text-on-surface">{statusByTab[activeTab]}</dd>
         </div>
       </dl>
     </section>
   )
 }
 
-function RegisterCallScaffold({ saved }: { saved: boolean }) {
-  const sections = [
-    ['기본 운송 정보', '출발지·도착지·차량·품목'],
-    ['상차 일정', '상차 날짜·시간·조정 가능 범위'],
-    ['요청 내용', '운송 시 전달할 참고사항'],
-  ]
-
-  return (
-    <section className="space-y-lg" aria-labelledby="register-call-title">
-      {saved && (
-        <div className="flex items-start gap-md rounded-xl border border-primary bg-[#fff9cc] p-md text-on-surface">
-          <span className="material-symbols-outlined text-primary" aria-hidden="true">check_circle</span>
-          <div>
-            <p className="text-label-md font-bold">선호 조건 설정이 완료되었습니다.</p>
-            <p className="mt-xs text-body-md text-secondary">저장한 조건은 내 정보에서 다시 수정할 수 있어요.</p>
-          </div>
-        </div>
-      )}
-      <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg md:p-xl">
-        <h1 id="register-call-title" className="text-[28px] font-black leading-tight tracking-[-0.03em] text-on-surface md:text-[32px]">화물 정보 등록</h1>
-        <p className="mt-sm max-w-2xl text-body-lg text-secondary">배차에 필요한 운송 정보를 입력하는 화면 골격입니다.</p>
-        <div className="mt-xl grid gap-md md:grid-cols-3">
-          {sections.map(([title, description], index) => (
-            <div key={title} className="min-h-40 rounded-xl border border-outline-variant bg-surface-container-low p-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-label-sm font-bold text-primary">0{index + 1}</span>
-                <span className="text-label-sm text-secondary">작성 전</span>
-              </div>
-              <h2 className="mt-lg text-headline-sm font-bold text-on-surface">{title}</h2>
-              <p className="mt-sm text-body-md text-secondary">{description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function CompareScaffold() {
-  return (
-    <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg md:p-xl" aria-labelledby="compare-title">
-      <h1 id="compare-title" className="text-[28px] font-black leading-tight tracking-[-0.03em] text-on-surface md:text-[32px]">AI 화물 조정안 제안</h1>
-      <p className="mt-sm max-w-2xl text-body-lg text-secondary">현재 조건과 일정 조정안을 나란히 비교하는 화면 골격입니다.</p>
-      <div className="mt-xl grid gap-md md:grid-cols-2">
-        {[
-          ['현재 조건', '입력한 운송 조건을 그대로 유지'],
-          ['조정안', '후보·운임·배차시간 변화 비교'],
-        ].map(([title, description], index) => (
-          <div key={title} className={`min-h-64 rounded-2xl border p-lg ${index === 1 ? 'border-primary bg-[#fffdf0]' : 'border-outline-variant bg-surface-container-low'}`}>
-            <h2 className="text-headline-sm font-bold text-on-surface">{title}</h2>
-            <p className="mt-sm text-body-md text-secondary">{description}</p>
-            <div className="mt-xl grid grid-cols-3 gap-sm">
-              {['후보', '예상 운임', '배차시간'].map((label) => (
-                <div key={label}>
-                  <p className="text-label-sm text-secondary">{label}</p>
-                  <p className="mt-sm text-body-md font-bold text-on-surface">미산정</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function ReportScaffold() {
-  return (
-    <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg md:p-xl" aria-labelledby="report-title">
-      <h1 id="report-title" className="text-[28px] font-black leading-tight tracking-[-0.03em] text-on-surface md:text-[32px]">운임 절감·탄소배출 리포트</h1>
-      <p className="mt-sm max-w-2xl text-body-lg text-secondary">배차 이력이 쌓이면 월간 성과와 변화 원인을 확인할 수 있습니다.</p>
-      <div className="mt-xl grid gap-md sm:grid-cols-2">
-        {[
-          ['운임 절감', '월간 절감액과 주요 개선 요인'],
-          ['탄소배출 감축', '공차거리 감소에 따른 감축 추정'],
-        ].map(([title, description]) => (
-          <div key={title} className="rounded-xl bg-surface-container-low p-lg">
-            <p className="text-label-md font-bold text-on-surface">{title}</p>
-            <p className="mt-xs text-body-md text-secondary">{description}</p>
-            <p className="mt-xl text-headline-md font-black text-on-surface">데이터 없음</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function ProfileScaffold({
-  selections,
-  onEditPreferences,
-}: {
-  selections: PreferenceSelections
-  onEditPreferences: () => void
-}) {
-  return (
-    <section className="space-y-lg" aria-labelledby="profile-title">
-      <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg md:p-xl">
-        <h1 id="profile-title" className="text-[28px] font-black leading-tight tracking-[-0.03em] text-on-surface md:text-[32px]">화주 기본정보</h1>
-        <p className="mt-sm text-body-lg text-secondary">회사와 담당자 정보를 관리하는 화면 골격입니다.</p>
-        <div className="mt-xl grid gap-md sm:grid-cols-2">
-          {['회사 정보', '담당자 정보'].map((title) => (
-            <div key={title} className="rounded-xl bg-surface-container-low p-lg">
-              <p className="text-label-md font-bold text-on-surface">{title}</p>
-              <p className="mt-md text-body-md text-secondary">입력된 정보가 없습니다.</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg md:p-xl">
-        <div className="flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-headline-sm font-bold text-on-surface">화주 선호 조건</h2>
-            <p className="mt-xs text-body-md text-secondary">필수 설정에서 선택한 기준입니다.</p>
-          </div>
-          <button type="button" onClick={onEditPreferences} className="inline-flex min-h-11 items-center justify-center gap-sm rounded-full border border-outline px-lg text-label-md font-bold text-on-surface transition-colors hover:bg-surface-container-low">
-            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
-            선호 조건 수정
-          </button>
-        </div>
-        <div className="mt-lg grid gap-md md:grid-cols-3">
-          {preferenceGroups.map((group) => (
-            <div key={group.id} className="rounded-xl bg-surface-container-low p-md">
-              <p className="text-label-sm text-secondary">{group.title}</p>
-              <p className="mt-sm text-body-md"><SelectionValue values={selections[group.id]} /></p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function ShipperScreen() {
-  const [activeTab, setActiveTab] = useState<TabId>('settings')
+  const [activeTab, setActiveTab] = useState<ShipperTabId>('settings')
   const [selections, setSelections] = useState<PreferenceSelections>(initialSelections)
   const [preferencesSaved, setPreferencesSaved] = useState(false)
+  const [callForm, setCallForm] = useState<CallForm>(emptyCallForm)
+  const [comparisonOptions, setComparisonOptions] = useState<ComparisonOptions>(initialComparisonOptions)
+  const [decision, setDecision] = useState<DispatchDecision>(null)
 
   const answeredCount = preferenceGroups.filter((group) => selections[group.id].length > 0).length
-
-  const setupProgress = preferencesSaved ? 100 : Math.round((answeredCount / preferenceGroups.length) * 100)
+  const registrationCompletion = callFieldCompletion(callForm)
   const activeTabIndex = shipperTabs.findIndex((tab) => tab.id === activeTab)
 
   const togglePreference = (groupId: PreferenceGroupId, option: string) => {
@@ -289,16 +223,10 @@ function ShipperScreen() {
     setSelections((currentSelections) => {
       const currentGroup = currentSelections[groupId]
       const exists = currentGroup.includes(option)
-
-      if (!exists && currentGroup.length >= 2) {
-        return currentSelections
-      }
-
+      if (!exists && currentGroup.length >= 2) return currentSelections
       return {
         ...currentSelections,
-        [groupId]: exists
-          ? currentGroup.filter((currentOption) => currentOption !== option)
-          : [...currentGroup, option],
+        [groupId]: exists ? currentGroup.filter((currentOption) => currentOption !== option) : [...currentGroup, option],
       }
     })
   }
@@ -309,14 +237,32 @@ function ShipperScreen() {
     setActiveTab('register')
   }
 
-  const tabProgress = (tabId: TabId) => {
-    if (tabId === 'settings') return setupProgress
-    return 0
+  const continueToComparison = () => {
+    if (registrationCompletion !== 6) return
+    const currentScenario = getCurrentScenario(callForm)
+    setComparisonOptions((current) => ({ ...current, allowDateDelay: false, relaxedWindowMinutes: getNextRelaxedWindow(currentScenario.windowMinutes) }))
+    setDecision(null)
+    setActiveTab('compare')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const chooseDecision = (nextDecision: Exclude<DispatchDecision, null>) => {
+    setDecision(nextDecision)
+    setActiveTab('report')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const tabProgress = (tabId: ShipperTabId) => {
+    if (tabId === 'settings') return preferencesSaved ? 100 : Math.round(answeredCount / preferenceGroups.length * 100)
+    if (tabId === 'register') return Math.round(registrationCompletion / 6 * 100)
+    if (tabId === 'compare') return registrationCompletion === 6 ? (decision ? 100 : 50) : 0
+    if (tabId === 'report') return decision ? 100 : 0
+    return preferencesSaved ? 100 : Math.round(answeredCount / preferenceGroups.length * 100)
   }
 
   return (
-    <div className="shipper-app min-h-screen bg-background text-on-surface">
-      <nav className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-margin-mobile md:px-margin-desktop" aria-label="역할 선택">
+    <div className="shipper-app min-h-screen min-w-[1400px] bg-background text-on-surface">
+      <nav className="fixed top-0 z-50 flex h-16 w-full min-w-[1400px] items-center justify-between border-b border-outline-variant bg-surface px-8" aria-label="역할 선택">
         <div className="flex items-center">
           <span className="mr-xl text-headline-md font-black tracking-[-0.04em] text-on-surface">Mov!n</span>
           <div className="flex gap-lg">
@@ -328,7 +274,7 @@ function ShipperScreen() {
           <button type="button" aria-label="알림" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container">
             <span className="material-symbols-outlined text-on-surface" aria-hidden="true">notifications</span>
           </button>
-          <button type="button" aria-label="설정" className="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container sm:flex">
+          <button type="button" aria-label="설정" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container">
             <span className="material-symbols-outlined text-on-surface" aria-hidden="true">settings</span>
           </button>
           <div className="ml-xs flex h-9 w-9 items-center justify-center rounded-full bg-on-secondary-fixed text-label-sm font-black text-primary-fixed" aria-label="화주 프로필">화주</div>
@@ -336,9 +282,9 @@ function ShipperScreen() {
       </nav>
 
       <div className="flex min-h-screen pt-16">
-        <aside className="fixed left-0 top-16 z-40 hidden h-[calc(100vh-64px)] w-[264px] flex-col bg-on-secondary-fixed py-lg shadow-sm lg:flex">
+        <aside className="fixed left-0 top-16 z-40 flex h-[calc(100vh-64px)] w-[232px] flex-col bg-on-secondary-fixed py-lg shadow-sm">
           <div className="px-lg pb-lg">
-            <h2 className="text-headline-sm font-bold text-primary-fixed">화주 업무</h2>
+            <h2 className="text-headline-sm font-black text-primary-fixed">화주 업무</h2>
             <p className="mt-xs text-label-sm text-secondary-fixed-dim">발주부터 리포트까지 5단계</p>
           </div>
           <nav className="flex-1" aria-label="화주 업무 탭">
@@ -378,24 +324,7 @@ function ShipperScreen() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 p-margin-mobile lg:ml-[264px] lg:p-margin-desktop">
-          <nav className="-mx-margin-mobile mb-lg flex gap-sm overflow-x-auto border-b border-outline-variant px-margin-mobile pb-md lg:hidden" aria-label="모바일 화주 업무 탭">
-            {shipperTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-full px-md py-sm text-label-md font-bold ${
-                  activeTab === tab.id
-                    ? 'bg-on-secondary-fixed text-primary-fixed'
-                    : 'bg-surface-container text-secondary'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-
+        <main className="ml-[232px] min-w-0 flex-1 p-6">
           <div className="mb-lg flex items-center gap-sm text-label-sm text-secondary">
             <span>화주 업무</span>
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span>
@@ -403,29 +332,34 @@ function ShipperScreen() {
             <span className="ml-auto font-bold text-on-surface">{activeTabIndex + 1}/5 단계</span>
           </div>
 
-          <div className="grid min-w-0 gap-lg xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_288px] items-start gap-lg">
             <div className="min-w-0">
               {activeTab === 'settings' && (
-                <PreferenceSetup
-                  selections={selections}
-                  answeredCount={answeredCount}
-                  onToggle={togglePreference}
-                  onSave={savePreferences}
+                <PreferenceSetup selections={selections} answeredCount={answeredCount} onToggle={togglePreference} onSave={savePreferences} />
+              )}
+              {activeTab === 'register' && (
+                <CallRegistration
+                  form={callForm}
+                  preferencesSaved={preferencesSaved}
+                  onChange={(next) => {
+                    setCallForm(next)
+                    setDecision(null)
+                  }}
+                  onContinue={continueToComparison}
                 />
               )}
-              {activeTab === 'register' && <RegisterCallScaffold saved={preferencesSaved} />}
-              {activeTab === 'compare' && <CompareScaffold />}
-              {activeTab === 'report' && <ReportScaffold />}
+              {activeTab === 'compare' && (
+                <ConditionComparison form={callForm} options={comparisonOptions} onOptionsChange={setComparisonOptions} onDecision={chooseDecision} />
+              )}
+              {activeTab === 'report' && <ShipperReport form={callForm} options={comparisonOptions} decision={decision} />}
               {activeTab === 'profile' && (
-                <ProfileScaffold selections={selections} onEditPreferences={() => setActiveTab('settings')} />
+                <ShipperProfile selections={selections} form={callForm} decision={decision} onEditPreferences={() => setActiveTab('settings')} />
               )}
             </div>
-            <DecisionSummary selections={selections} answeredCount={answeredCount} />
+            <DecisionSummary selections={selections} answeredCount={answeredCount} form={callForm} decision={decision} options={comparisonOptions} />
           </div>
 
-          <div className="mt-lg">
-            <CurrentDispatch activeTab={activeTab} />
-          </div>
+          <div className="mt-lg"><CurrentDispatch activeTab={activeTab} form={callForm} decision={decision} options={comparisonOptions} /></div>
         </main>
       </div>
     </div>
