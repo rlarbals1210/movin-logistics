@@ -254,14 +254,6 @@ function ShipperScreen() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const tabProgress = (tabId: ShipperTabId) => {
-    if (tabId === 'settings') return preferencesSaved ? 100 : Math.round(answeredCount / preferenceGroups.length * 100)
-    if (tabId === 'register') return Math.round(registrationCompletion / 6 * 100)
-    if (tabId === 'compare') return registrationCompletion === 6 ? (decision ? 100 : 50) : 0
-    if (tabId === 'report') return decision ? 100 : 0
-    return preferencesSaved ? 100 : Math.round(answeredCount / preferenceGroups.length * 100)
-  }
-
   return (
     <div className="shipper-app min-h-screen min-w-[1400px] bg-background text-on-surface">
       <nav className="fixed top-0 z-50 flex h-16 w-full min-w-[1400px] items-center justify-between border-b border-outline-variant bg-surface px-8" aria-label="역할 선택">
@@ -273,54 +265,20 @@ function ShipperScreen() {
           </div>
         </div>
         <div className="flex items-center gap-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            aria-label="내 정보"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
+          >
+            <span className="material-symbols-outlined text-on-surface" aria-hidden="true">person</span>
+          </button>
           <div className="flex h-9 items-center justify-center rounded-full bg-on-secondary-fixed px-md text-label-sm font-black text-primary-fixed" aria-label="화주/주선사 프로필">화주/주선사</div>
         </div>
       </nav>
 
       <div className="flex min-h-screen pt-16">
-        <aside className="fixed left-0 top-16 z-40 flex h-[calc(100vh-64px)] w-[232px] flex-col bg-on-secondary-fixed py-lg shadow-sm">
-          <div className="px-lg pb-lg">
-            <h2 className="text-headline-sm font-black text-primary-fixed">화주/주선사 업무</h2>
-            <p className="mt-xs text-label-sm text-secondary-fixed-dim">발주부터 리포트까지 5단계</p>
-          </div>
-          <nav className="flex-1" aria-label="화주/주선사 업무 탭">
-            {shipperTabs.map((tab, index) => {
-              const isActive = tab.id === activeTab
-              const progress = tabProgress(tab.id)
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full border-l-4 px-lg py-md text-left transition-colors ${
-                    isActive
-                      ? 'border-primary-fixed bg-on-secondary-fixed-variant text-primary-fixed'
-                      : 'border-transparent text-secondary-fixed-dim hover:bg-on-secondary-fixed-variant hover:text-secondary-fixed'
-                  }`}
-                >
-                  <span className="flex items-center gap-md">
-                    <span className="material-symbols-outlined" aria-hidden="true">{tab.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-sm">
-                        <span className="text-label-md font-bold">{tab.label}</span>
-                        <span className="text-label-sm">{index + 1}/5</span>
-                      </span>
-                      <span className="mt-sm block h-1 overflow-hidden rounded-full bg-[#5d5d5b]">
-                        <span className="block h-full rounded-full bg-primary-fixed transition-[width]" style={{ width: `${progress}%` }} />
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-          </nav>
-          <div className="mx-lg rounded-xl bg-[#252525] p-md">
-            <p className="text-label-sm text-secondary-fixed-dim">현재 단계</p>
-            <p className="mt-xs text-label-md font-bold text-secondary-fixed">{shipperTabs[activeTabIndex].label}</p>
-          </div>
-        </aside>
-
-        <main className="ml-[232px] min-w-0 flex-1 p-6">
+        <main className="min-w-0 flex-1 p-6">
           <div className="mb-lg flex items-center gap-sm text-label-sm text-secondary">
             <span>화주/주선사 업무</span>
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span>
