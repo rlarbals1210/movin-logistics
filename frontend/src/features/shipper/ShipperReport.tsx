@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useInsight } from '../../lib/useInsight'
+import { 감축률표기, 월간_탄소요약, 탄소량표기 } from './shipperCarbon'
+import { completedOrderCarbonInputs } from './shipperCarbonOrders'
 import { operationLogs, shipperReportMetrics } from './shipperData'
 import {
   formatShortCurrency,
@@ -102,6 +104,10 @@ function StatCard({ label, value, helper, accent }: { label: string; value: stri
   )
 }
 
+// 정적 import 라 렌더마다 다시 계산할 이유가 없다. 데이터가 비면 null 이고, 그때 화면은
+// 계산값 대신 `산정 대기` 를 띄운다(PROJECT_KNOWLEDGE.md 198줄).
+const 월간탄소 = 월간_탄소요약(completedOrderCarbonInputs)
+
 function ReportContent({ form, scenarios, modelMetadata, options, decision, compact = false }: ShipperReportProps & { compact?: boolean }) {
   const current = getCurrentScenario(form, scenarios)
   const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
@@ -130,14 +136,16 @@ function ReportContent({ form, scenarios, modelMetadata, options, decision, comp
             <div>
               <h3 className="text-headline-sm font-black text-on-surface">탄소배출 감축</h3>
               <p className="mt-xs text-body-md text-secondary">기존 공차 운행과 매칭 후 운행의 배출량 차이를 기준으로 계산합니다.</p>
-              <span className="mt-sm inline-flex whitespace-nowrap rounded-full bg-surface-container px-md py-sm text-label-sm font-bold text-secondary">운행 데이터 연결 대기</span>
+              <span className="mt-sm inline-flex whitespace-nowrap rounded-full bg-surface-container px-md py-sm text-label-sm font-bold text-secondary">
+                {월간탄소 ? `완료 오더 ${월간탄소.건수}건 기준` : '운행 데이터 연결 대기'}
+              </span>
             </div>
             <span className="material-symbols-outlined text-[30px] text-[#007a5a]" aria-hidden="true">eco</span>
           </div>
           <div className="mt-lg grid grid-cols-3 gap-md">
-            <div><p className="text-label-sm text-secondary">총 감축량</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">월간 탄소 감축량 합계</p></div>
-            <div><p className="text-label-sm text-secondary">건당 감축</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">오더별 탄소 감축량</p></div>
-            <div><p className="text-label-sm text-secondary">감축률</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">산정 대기</strong><p className="mt-xs text-label-sm text-secondary">탄소감축량 ÷ 기존 배출량 × 100</p></div>
+            <div><p className="text-label-sm text-secondary">총 감축량</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">{월간탄소 ? 탄소량표기(월간탄소.총감축량_kg) : '산정 대기'}</strong><p className="mt-xs text-label-sm text-secondary">월간 탄소 감축량 합계</p></div>
+            <div><p className="text-label-sm text-secondary">건당 감축</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">{월간탄소 ? 탄소량표기(월간탄소.건당평균감축량_kg) : '산정 대기'}</strong><p className="mt-xs text-label-sm text-secondary">오더별 탄소 감축량</p></div>
+            <div><p className="text-label-sm text-secondary">감축률</p><strong className="mt-xs block text-headline-sm font-black text-on-surface">{월간탄소 ? 감축률표기(월간탄소.감축률_퍼센트) : '산정 대기'}</strong><p className="mt-xs text-label-sm text-secondary">탄소감축량 ÷ 기존 배출량 × 100</p></div>
           </div>
           <div className="mt-lg rounded-xl bg-surface-container-low p-md">
             <p className="text-label-sm font-black text-on-surface">탄소 감축량은 어떻게 계산되나요?</p>
@@ -151,6 +159,9 @@ function ReportContent({ form, scenarios, modelMetadata, options, decision, comp
             </ul>
             <p className="mt-md border-t border-outline-variant pt-md text-center font-mono text-label-md font-black text-on-surface">
               ΔE = D × EF_empty + D_dh × EF_empty
+            </p>
+            <p className="mt-md text-label-sm leading-5 text-secondary">
+              배출계수는 경유 2.609kg CO₂/L(「에너지법 시행규칙」 별표12, 연소 기준)를 톤급별 연비로 나눈 값입니다. 연비는 업계 평균 추정치이며, 접근 공차거리(D_dh)는 매칭 시점의 추정값입니다.
             </p>
           </div>
         </section>

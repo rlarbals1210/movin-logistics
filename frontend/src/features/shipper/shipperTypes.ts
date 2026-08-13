@@ -1,3 +1,5 @@
+import type { 톤급 } from '../../lib/types'
+
 export type ShipperTabId = 'settings' | 'register' | 'compare' | 'report' | 'profile'
 
 export type CallForm = {
@@ -46,6 +48,23 @@ export type OperationLog = {
   title: string
   detail: string
   status: '완료' | '응답 대기' | '분석'
+}
+
+/**
+ * 탄소 감축 산정에 들어가는 완료 오더 한 건.
+ *
+ * `docs/reference/hack/carbon-calculation-current.md` 의 D·D_dh 에 해당한다.
+ */
+export type CompletedOrderCarbonInput = {
+  callId: string
+  route: string
+  /** 'MM.DD' — OperationLog.date 와 같은 표기 */
+  completedAt: string
+  tonnage: 톤급
+  /** D — 매칭된 적재 구간 거리(km) */
+  matchedDistanceKm: number
+  /** D_dh — 매칭이 없었다면 별도 차량이 상차지까지 접근하며 발생했을 공차거리(km) 추정 */
+  deadheadDistanceKm: number
 }
 
 export const emptyCallForm: CallForm = {

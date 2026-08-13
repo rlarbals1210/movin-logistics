@@ -9,8 +9,8 @@
  *   - D_dh  : deadheadDistanceKm   매칭되지 않았을 경우 별도 차량이 상차지까지
  *                                  접근하는 데 필요했을 공차거리(추정치)
  *
- * 배출계수(EF_empty)는 frontend/src/features/carrier/economics.ts의
- * 배출계수_kg_per_km 공차값을 그대로 사용한다. 여기서 새로 정의하지 않는다.
+ * 배출계수(EF_empty)는 frontend/src/lib/emissions.ts 의 `배출계수_kg_per_km` 공차값을
+ * 그대로 사용한다. 여기서 새로 정의하지 않는다.
  *   5t = 0.373 / 11t = 0.522 / 25t = 0.652 (kg CO2e per km)
  *
  * ※ deadheadDistanceKm는 실측값이 아니라 가정치다.
@@ -19,14 +19,7 @@
  *   (장거리일수록 상차지 인근에서 대기 차량을 확보하기 어렵기 때문)
  */
 
-export type CompletedOrderCarbonInput = {
-  callId: string
-  route: string
-  completedAt: string
-  tonnage: 5 | 11 | 25
-  matchedDistanceKm: number
-  deadheadDistanceKm: number
-}
+import type { CompletedOrderCarbonInput } from './shipperTypes'
 
 export const completedOrderCarbonInputs: CompletedOrderCarbonInput[] = [
   {
