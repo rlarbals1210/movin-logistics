@@ -17,6 +17,7 @@ Kakao 지오코딩·길찾기 클라이언트.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -27,9 +28,50 @@ _TIMEOUT = httpx.Timeout(4.0)
 
 _geocode_cache: dict[str, tuple[float, float] | None] = {}
 
+# 레포 루트 → backend/ 순. fixtures.py 의 경로 탐색과 같은 방식이다.
+_ENV_CANDIDATES = [
+    Path(__file__).resolve().parents[2] / ".env",
+    Path(__file__).resolve().parents[1] / ".env",
+]
+
+_env_읽음 = False
+
+
+def _env파일_읽기() -> None:
+    """`.env` 의 값을 os.environ 에 채운다(이미 있는 값은 덮지 않는다).
+
+    `uv run uvicorn ...` 은 .env 를 자동으로 읽지 않는다. 그래서 키가 .env 에
+    분명히 있는데도 서버 프로세스에는 없어서 지오코딩이 조용히 전부 실패했고,
+    predictions.json 콜이 좌표 null · 공차거리 0km 로 나갔다. 새 의존성
+    (python-dotenv)을 붙이는 대신 필요한 만큼만 직접 읽는다.
+    """
+    global _env_읽음
+    if _env_읽음:
+        return
+    _env_읽음 = True
+
+    for 경로 in _ENV_CANDIDATES:
+        try:
+            본문 = 경로.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for 줄 in 본문.splitlines():
+            줄 = 줄.strip()
+            if not 줄 or 줄.startswith("#") or "=" not in 줄:
+                continue
+            이름, _, 값 = 줄.partition("=")
+            이름 = 이름.strip()
+            값 = 값.strip().strip('"').strip("'")
+            if 이름 and 값 and not os.getenv(이름):
+                os.environ[이름] = 값
+        return
+
 
 def _api_key() -> str | None:
     key = os.getenv("KAKAOMAP_REST_API_KEY", "").strip()
+    if not key:
+        _env파일_읽기()
+        key = os.getenv("KAKAOMAP_REST_API_KEY", "").strip()
     return key or None
 
 

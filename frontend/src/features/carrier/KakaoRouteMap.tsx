@@ -41,6 +41,7 @@ interface KakaoSdk {
     services: {
       Status: { OK: string }
       Geocoder: new () => { addressSearch(address: string, callback: (result: GeocodeResult[], status: string) => void): void }
+      Places: new () => { keywordSearch(keyword: string, callback: (result: GeocodeResult[], status: string) => void): void }
     }
   }
 }
@@ -102,20 +103,44 @@ function labelElement(text: string, className: string): HTMLElement {
   return element
 }
 
-function geocode(sdk: KakaoSdk, address: string): Promise<지도좌표> {
-  return new Promise((resolve, reject) => {
-    const geocoder = new sdk.maps.services.Geocoder()
-    const timer = window.setTimeout(() => reject(new Error('GEOCODING_TIMEOUT')), 5_000)
-    geocoder.addressSearch(address, (result, status) => {
+type 좌표검색 = (query: string, callback: (result: GeocodeResult[], status: string) => void) => void
+
+/** 검색 한 번. 실패·응답없음은 예외 대신 null 로 돌려서 다음 수단으로 넘긴다. */
+function 검색한번(search: 좌표검색, address: string, okStatus: string): Promise<지도좌표 | null> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), 5_000)
+    search(address, (result, status) => {
       window.clearTimeout(timer)
-      const first = result[0]
-      if (status !== sdk.maps.services.Status.OK || !first) {
-        reject(new Error('COORDINATE_NOT_FOUND'))
+      const first = result?.[0]
+      if (status !== okStatus || !first) {
+        resolve(null)
         return
       }
       resolve({ lat: Number(first.y), lng: Number(first.x) })
     })
   })
+}
+
+/**
+ * 주소 텍스트 → 좌표.
+ *
+ * addressSearch 는 **행정 주소만** 찾는다. predictions.json 의 출발지는
+ * `창원공단` 처럼 장소 이름이라 주소 검색이 0 건이고, 그러면 지도 전체가
+ * 폴백 도식으로 떨어졌다(콜 수락 뒤 지도가 안 뜨던 원인). 주소로 못 찾으면
+ * 키워드 검색(장소 이름)으로 한 번 더 물어본다 — `창원공단` 은 마산자유무역
+ * 지역, `평택` 은 송탄 일대로 잡혀서 경로 개관용으로는 충분하다.
+ */
+async function geocode(sdk: KakaoSdk, address: string): Promise<지도좌표> {
+  const ok = sdk.maps.services.Status.OK
+  const geocoder = new sdk.maps.services.Geocoder()
+  const 주소결과 = await 검색한번((query, callback) => geocoder.addressSearch(query, callback), address, ok)
+  if (주소결과) return 주소결과
+
+  const places = new sdk.maps.services.Places()
+  const 장소결과 = await 검색한번((query, callback) => places.keywordSearch(query, callback), address, ok)
+  if (장소결과) return 장소결과
+
+  throw new Error('COORDINATE_NOT_FOUND')
 }
 
 function FallbackMap({ reason }: { reason: string }) {
