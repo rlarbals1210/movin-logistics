@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import Body, FastAPI
+from fastapi import Body, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 
@@ -43,6 +43,8 @@ class CarrierDecision(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     콜ID: str | None = None
+    action: str | None = None
+    feedback: str | None = None
     선택여부: bool | None = None
     사유: str | None = None
 
@@ -98,7 +100,16 @@ def match_shipper(req: ShipperMatchRequest = Body(default_factory=ShipperMatchRe
 
 
 @app.get("/v1/matches/carrier/{carrier_id}")
-def match_carrier(carrier_id: str) -> dict[str, Any]:
+def match_carrier(
+    carrier_id: str,
+    region: str | None = None,
+    subregion: str | None = None,
+    timeSlots: list[str] = Query(default=[]),
+    maxEmptyKm: int | None = None,
+    maxDurationHours: int | None = None,
+    prioritizeIncome: bool | None = None,
+    prioritizeBackhaul: bool | None = None,
+) -> dict[str, Any]:
     """
     추천 콜 3건을 반환한다.
 
@@ -107,6 +118,17 @@ def match_carrier(carrier_id: str) -> dict[str, Any]:
     """
     return {
         "운송인ID": carrier_id,
+        # 프론트 선호 조건 → 매칭 API 계약. 지금은 fixture를 반환하지만
+        # 모델 연결 시 이 값을 그대로 필터/정렬 입력으로 사용한다.
+        "적용조건": {
+            "region": region,
+            "subregion": subregion,
+            "timeSlots": timeSlots,
+            "maxEmptyKm": maxEmptyKm,
+            "maxDurationHours": maxDurationHours,
+            "prioritizeIncome": prioritizeIncome,
+            "prioritizeBackhaul": prioritizeBackhaul,
+        },
         # 주의: 이 목록만은 여전히 고정값이다. predictions.json 에 공차거리km ·
         # 복화가능성이 없어서 교체하면 실수령 비교가 무너진다(fixtures.py 상단 주석).
         "운송인_추천콜": RESPONSE["운송인_추천콜"],

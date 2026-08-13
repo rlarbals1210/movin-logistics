@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCarrierCalls } from './features/carrier/useCarrierCalls'
 import type { 추천콜상세 } from './features/carrier/carrierTypes'
 import { 귀가가능한가, 수익분해계산, type 수익분해 } from './features/carrier/economics'
-import { 결정전송 } from './features/carrier/decisions'
+import { 수락피드백전송 } from './features/carrier/decisions'
+import { useInsight } from './lib/useInsight'
 import {
   기본운송인,
   권역별_세부지역,
@@ -17,6 +18,7 @@ import {
   선호조건완료인가,
   선호조건읽기,
   선호조건저장,
+  매칭쿼리문자열,
   type CarrierPreferences,
 } from './features/carrier/carrierPreferences'
 
@@ -310,13 +312,31 @@ interface 계산후보 {
   귀가: boolean
 }
 
+const 운행비 = (candidate: 계산후보) => candidate.분해.유류비_적재 + candidate.분해.유류비_공차 + candidate.분해.톨비
+
+function 후보표시정보(candidate: 계산후보, index: number) {
+  const tags = [
+    index === 0 ? '추천 1순위' : '비교 후보',
+    candidate.콜.공차거리km <= 30 ? '공차 30km 이내' : '',
+    candidate.분해.총소요_h <= 8 ? '8시간 이내' : '',
+    candidate.콜.복화가능성 >= 0.5 ? '복화 가능성 높음' : '',
+  ].filter(Boolean)
+  const warnings = [
+    candidate.콜.공차거리km > 30 ? '공차거리 주의' : '',
+    candidate.분해.총소요_h > 8 ? '8시간 초과' : '',
+    candidate.콜.복화가능성 < 0.3 ? '복화 가능성 낮음' : '',
+    !candidate.귀가 ? '귀가 경로 아님' : '',
+  ].filter(Boolean)
+  return { tags, warnings }
+}
+
 function CallsLoading() {
   return <div className="carrier-loading-list" aria-label="오더 불러오는 중" aria-busy="true">{[0, 1, 2].map((n) => <div key={n}><span /><span /><span /></div>)}</div>
 }
 
-function OrderBoardScreen({ candidates, loading, preferences, source }: { candidates: 계산후보[]; loading: boolean; preferences: CarrierPreferences; source: 'api' | '폴백' }) {
+function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery }: { candidates: 계산후보[]; loading: boolean; preferences: CarrierPreferences; source: 'api' | '폴백'; matchQuery: string }) {
   return (
-    <div className="carrier-screen carrier-board-screen">
+    <div className="carrier-screen carrier-board-screen" data-match-query={matchQuery}>
       <h1>조건에 맞는 오더를<br />찾았어요</h1>
       <div className="carrier-active-filter"><Icon name="filter" size={17} /><span>{preferences.권역} · {preferences.세부지역}</span><span>{preferences.선호시간.join(', ')}</span></div>
       <div className="carrier-section-heading"><div><h2>오더 게시판</h2><small>실수령과 공차거리까지 반영</small></div><strong>{candidates.length}건</strong></div>
@@ -337,29 +357,118 @@ function OrderBoardScreen({ candidates, loading, preferences, source }: { candid
   )
 }
 
-function CompareScreen({ candidates, selectedId, onSelect }: { candidates: 계산후보[]; selectedId: string; onSelect: (id: string) => void }) {
+function CandidateNotification({ count, onOpen }: { count: number; onOpen: () => void }) {
+  return (
+    <button type="button" className="carrier-candidate-alert" onClick={onOpen} aria-label={`추천 후보 ${count}개 비교하기`}>
+      <span className="carrier-alert-icon"><Icon name="bell" size={20} /></span>
+      <span><strong>추천 후보 {count}개가 도착했어요</strong><small>눌러서 예상 실수령을 비교해 보세요.</small></span>
+      <Icon name="chevron" size={18} />
+    </button>
+  )
+}
+
+interface CandidateDelta {
+  label: string
+  value: number
+  unit: string
+  digits?: number
+}
+
+function 차이표시({ value, unit, digits = 0 }: Omit<CandidateDelta, 'label'>) {
+  if (Math.abs(value) < 0.0001) return `차이 없음`
+  const absolute = Math.abs(value).toLocaleString('ko-KR', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  return `${value > 0 ? '+' : '−'}${absolute}${unit}`
+}
+
+function 규칙기반비교설명(recommended: 계산후보, selected: 계산후보): string {
+  const netDelta = selected.분해.실수령 - recommended.분해.실수령
+  const timeDelta = selected.분해.총소요_h - recommended.분해.총소요_h
+  const netText = netDelta === 0 ? '같고' : `${원(Math.abs(netDelta))} ${netDelta > 0 ? '많고' : '적고'}`
+  const timeText = Math.abs(timeDelta) < 0.05 ? '같습니다' : `${Math.abs(timeDelta).toFixed(1)}시간 ${timeDelta > 0 ? '깁니다' : '짧습니다'}`
+  return `선택한 후보는 추천 1순위보다 예상 실수령이 ${netText}, 운행시간은 ${timeText}. 실수령과 운행시간의 차이를 함께 비교한 값입니다.`
+}
+
+function CompareScreen({
+  candidates,
+  selectedId,
+  onSelect,
+  locked,
+}: {
+  candidates: 계산후보[]
+  selectedId: string
+  onSelect: (id: string) => void
+  locked: boolean
+}) {
+  const topCandidates = candidates.slice(0, 3)
+  const recommended = topCandidates[0]
+  const selected = topCandidates.find((candidate) => candidate.콜.콜ID === selectedId) ?? recommended
+  const isAlternative = Boolean(recommended && selected && recommended.콜.콜ID !== selected.콜.콜ID)
+  const deltas: CandidateDelta[] = recommended && selected ? [
+    { label: '운행비', value: 운행비(selected) - 운행비(recommended), unit: '원' },
+    { label: '운행시간', value: selected.분해.총소요_h - recommended.분해.총소요_h, unit: '시간', digits: 1 },
+    { label: '표면운임', value: selected.콜.예측_운임 - recommended.콜.예측_운임, unit: '원' },
+    { label: '순수익', value: selected.분해.실수령 - recommended.분해.실수령, unit: '원' },
+    { label: '공차거리', value: selected.콜.공차거리km - recommended.콜.공차거리km, unit: 'km', digits: 1 },
+    { label: '시간당 순수익', value: selected.분해.시간당_실수령 - recommended.분해.시간당_실수령, unit: '원' },
+  ] : []
+  const insightFacts = recommended && selected ? {
+    추천1순위: { 예상실수령_원: recommended.분해.실수령, 운행시간_h: recommended.분해.총소요_h },
+    선택후보: { 예상실수령_원: selected.분해.실수령, 운행시간_h: selected.분해.총소요_h },
+    차이: { 예상실수령_원: selected.분해.실수령 - recommended.분해.실수령, 운행시간_h: Number((selected.분해.총소요_h - recommended.분해.총소요_h).toFixed(1)) },
+  } : {}
+  const { text: insightText, 로딩중: insightLoading } = useInsight('CARRIER', insightFacts, isAlternative)
+  const aiHasDirective = /(선택하|추천하|확정하|결정하|고르세요|택하세요)/.test(insightText)
+  const safeInsightText = aiHasDirective ? '' : insightText
+  const comparisonText = recommended && selected ? (safeInsightText || 규칙기반비교설명(recommended, selected)) : ''
+
   return (
     <div className="carrier-screen carrier-compare-screen">
       <h1>추천 콜 후보<br />TOP 3</h1>
       <p className="carrier-lead">운임만 보지 않고 실제 남는 금액으로 비교했어요.</p>
       <div className="carrier-candidate-list" role="radiogroup" aria-label="콜 후보 선택">
-        {candidates.slice(0, 3).map(({ 콜, 분해, 귀가 }, index) => {
+        {topCandidates.map((candidate, index) => {
+          const { 콜, 분해 } = candidate
           const selected = selectedId === 콜.콜ID
+          const display = 후보표시정보(candidate, index)
           return (
-            <button key={콜.콜ID} type="button" role="radio" aria-checked={selected} onClick={() => onSelect(콜.콜ID)} className={`carrier-candidate-card ${selected ? 'is-selected' : ''}`}>
+            <button key={콜.콜ID} type="button" role="radio" aria-checked={selected} disabled={locked} onClick={() => onSelect(콜.콜ID)} className={`carrier-candidate-card ${selected ? 'is-selected' : ''}`}>
               <span className="carrier-candidate-rank">{index + 1}</span>
               <div className="carrier-candidate-copy">
-                <small>{index === 0 ? '내 조건에 가장 적합' : index === 1 ? '수익 균형형' : '짧은 공차 우선'}</small>
+                <div className="carrier-recommendation-state"><small>{index === 0 ? '기본 추천' : '비교 후보'}</small><b>{index === 0 ? '추천' : '추천 아님'}</b></div>
                 <h2>{콜.출발지.split(' ').slice(0, 2).join(' ')} <span>→</span> {콜.도착지.split(' ').slice(0, 2).join(' ')}</h2>
-                <div className="carrier-net-earnings"><span>예상 실수령</span><strong>{원(분해.실수령)}</strong></div>
-                <p>운임 {원(콜.예측_운임)} · 공차 {콜.공차거리km.toLocaleString('ko-KR')}km · 총 {분해.총소요_h.toFixed(1)}시간</p>
-                <div className="carrier-fact-row"><span>복화 {Math.round(콜.복화가능성 * 100)}%</span><span>{귀가 ? '귀가 가능' : '귀가 경로 아님'}</span><span>{원(분해.시간당_실수령)}/h</span></div>
+                <p className="carrier-pickup-time"><Icon name="clock" size={14} /> 상차 {콜.상차시각}</p>
+                <div className="carrier-candidate-metrics">
+                  <span><small>공차거리</small><strong>{콜.공차거리km.toLocaleString('ko-KR')}km</strong></span>
+                  <span><small>운행시간</small><strong>{분해.총소요_h.toFixed(1)}시간</strong></span>
+                  <span><small>운임</small><strong>{원(콜.예측_운임)}</strong></span>
+                  <span><small>유류비</small><strong>−{원(분해.유류비_적재)}</strong></span>
+                  <span><small>공차비</small><strong>−{원(분해.유류비_공차)}</strong></span>
+                  <span className="is-net"><small>예상 실수령</small><strong>{원(분해.실수령)}</strong></span>
+                </div>
+                <div className="carrier-candidate-labels">
+                  {display.tags.map((tag) => <span key={tag} className="is-tag">{tag}</span>)}
+                  {display.warnings.map((warning) => <span key={warning} className="is-warning">{warning}</span>)}
+                </div>
               </div>
               <span className="carrier-radio"><span /></span>
             </button>
           )
         })}
       </div>
+      {isAlternative && (
+        <section className="carrier-delta-panel" aria-label="추천 1순위 대비 차이">
+          <div><h2>추천 1순위 대비 차이</h2><small>선택 후보 − 추천 1순위</small></div>
+          <div className="carrier-delta-grid">
+            {deltas.map((delta) => <span key={delta.label}><small>{delta.label}</small><strong className={delta.value > 0 ? 'is-plus' : delta.value < 0 ? 'is-minus' : ''}>{차이표시(delta)}</strong></span>)}
+          </div>
+          <div className="carrier-ai-explanation">
+            <strong>AI 비교 설명</strong>
+            {insightLoading && !safeInsightText ? <p className="is-loading">실수령과 운행시간을 비교하고 있어요.</p> : <p>{comparisonText}</p>}
+            {!insightLoading && !safeInsightText && <small>규칙 기반 설명</small>}
+          </div>
+        </section>
+      )}
+      {!isAlternative && <p className="carrier-default-recommendation"><Icon name="check" size={17} /> 첫 후보를 기본 추천으로 선택했어요.</p>}
       <p className="carrier-inline-note"><Icon name="info" size={18} /> 최종 선택은 운송인이 직접 결정합니다.</p>
     </div>
   )
@@ -467,16 +576,21 @@ function MenuDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 function CarrierScreen() {
-  const { 목록, 상태, 출처 } = useCarrierCalls(운송인ID)
   const [단계, set단계] = useState(0)
   const [확장오더, set확장오더] = useState(등록화물_목록[1]?.id ?? '')
   const [프로필열림, set프로필열림] = useState(false)
   const [선호조건, set선호조건] = useState<CarrierPreferences>(() => 선호조건읽기())
+  const [매칭쿼리, set매칭쿼리] = useState('')
+  const { 목록, 상태, 출처 } = useCarrierCalls(운송인ID, 매칭쿼리)
   const [선택콜ID, set선택콜ID] = useState('')
   const [복화선택, set복화선택] = useState('')
   const [메뉴열림, set메뉴열림] = useState(false)
   const [안내, set안내] = useState('')
   const [새로고침시각, set새로고침시각] = useState('방금 전')
+  const [추천알림열림, set추천알림열림] = useState(false)
+  const [확정중, set확정중] = useState(false)
+  const [확정콜ID, set확정콜ID] = useState('')
+  const 확정잠금 = useRef(false)
 
   const 후보 = useMemo<계산후보[]>(() => {
     const homeArea = 선호조건.세부지역 || '서울'
@@ -491,6 +605,15 @@ function CarrierScreen() {
 
   const 선택후보 = 후보.find((item) => item.콜.콜ID === 선택콜ID)
 
+  useEffect(() => {
+    if (단계 !== 3 || 상태 === 'loading' || 후보.length === 0) {
+      set추천알림열림(false)
+      return
+    }
+    const timer = window.setTimeout(() => set추천알림열림(true), 2200)
+    return () => window.clearTimeout(timer)
+  }, [단계, 상태, 후보.length, 매칭쿼리])
+
   const showNotice = (message: string) => {
     set안내(message)
     window.setTimeout(() => set안내(''), 2200)
@@ -501,18 +624,55 @@ function CarrierScreen() {
   }
 
   const 다음 = () => {
-    if (단계 === 2) 선호조건저장(선호조건)
-    if (단계 === 5 && 선택후보) {
-      결정전송({ 콜ID: 선택후보.콜.콜ID, 선택여부: true, 시각: Date.now() })
+    if (단계 === 5 && 확정중) return
+    if (단계 === 2) {
+      선호조건저장(선호조건)
+      set매칭쿼리(매칭쿼리문자열(선호조건))
     }
     if (단계 === 7) {
       set단계(0)
+      set매칭쿼리('')
       set선택콜ID('')
       set복화선택('')
+      set추천알림열림(false)
+      set확정콜ID('')
+      set확정중(false)
+      확정잠금.current = false
       set확장오더(등록화물_목록[1]?.id ?? '')
       return
     }
     set단계((current) => Math.min(7, current + 1))
+  }
+
+  const 추천알림열기 = () => {
+    const first = 후보[0]
+    if (!first) return
+    set선택콜ID(first.콜.콜ID)
+    set추천알림열림(false)
+    set단계(4)
+  }
+
+  const 콜확정 = () => {
+    if (!선택후보) return
+    if (확정콜ID === 선택후보.콜.콜ID) {
+      set단계(5)
+      return
+    }
+    if (확정잠금.current) return
+
+    확정잠금.current = true
+    set확정중(true)
+    set확정콜ID(선택후보.콜.콜ID)
+    set단계(5)
+    void 수락피드백전송(선택후보.콜.콜ID).then((성공) => {
+      if (!성공) showNotice('운행은 계속됩니다. ACCEPT 피드백은 나중에 다시 저장할게요.')
+    }).finally(() => {
+      // 더블클릭의 두 번째 입력이 다음 화면의 버튼으로 전달되지 않게 잠시 유지한다.
+      window.setTimeout(() => {
+        확정잠금.current = false
+        set확정중(false)
+      }, 650)
+    })
   }
 
   const action = (() => {
@@ -520,9 +680,9 @@ function CarrierScreen() {
       case 0: return { label: '최적안 추천 받기', disabled: false, helper: undefined }
       case 1: return { label: '확인했어요', disabled: false, helper: undefined }
       case 2: return { label: '저장하고 오더 보기', disabled: !선호조건완료인가(선호조건), helper: !선호조건완료인가(선호조건) ? '모든 분류에서 하나 이상 선택해 주세요.' : '조건이 모두 선택됐어요.' }
-      case 3: return { label: '추천 후보 3개 비교하기', disabled: 상태 === 'loading', helper: undefined }
-      case 4: return { label: '선택한 콜 경로 보기', disabled: !선택콜ID, helper: !선택콜ID ? '운행할 콜을 하나 선택해 주세요.' : undefined }
-      case 5: return { label: '이 경로로 운행하기', disabled: !선택후보, helper: undefined }
+      case 3: return null
+      case 4: return { label: 확정콜ID ? '확정한 콜 경로 보기' : 확정중 ? '콜 확정 중…' : '이 콜 확정하기', disabled: !선택콜ID || 확정중, helper: !선택콜ID ? '운행할 콜을 하나 선택해 주세요.' : undefined }
+      case 5: return { label: 확정중 ? '콜 확정 처리 중…' : '운행 시작하기', disabled: !선택후보 || 확정중, helper: undefined }
       case 6: return { label: '복화 콜 결정하기', disabled: !복화선택, helper: !복화선택 ? '복화 여부를 선택해 주세요.' : undefined }
       default: return { label: '새 운행 시작', disabled: false, helper: undefined }
     }
@@ -537,13 +697,14 @@ function CarrierScreen() {
             {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
             {단계 === 1 && <ProfileScreen />}
             {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
-            {단계 === 3 && <OrderBoardScreen candidates={후보} loading={상태 === 'loading'} preferences={선호조건} source={출처} />}
-            {단계 === 4 && <CompareScreen candidates={후보} selectedId={선택콜ID} onSelect={set선택콜ID} />}
+            {단계 === 3 && <OrderBoardScreen candidates={후보} loading={상태 === 'loading'} preferences={선호조건} source={출처} matchQuery={매칭쿼리} />}
+            {단계 === 4 && <CompareScreen candidates={후보} selectedId={선택콜ID} onSelect={set선택콜ID} locked={Boolean(확정콜ID)} />}
             {단계 === 5 && <RouteScreen candidate={선택후보} />}
             {단계 === 6 && <BackhaulScreen choice={복화선택} onChoice={set복화선택} />}
             {단계 === 7 && <ReportScreen candidate={선택후보} backhaulChoice={복화선택} />}
           </main>
-          <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={다음} />
+          {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={단계 === 4 ? 콜확정 : 다음} />}
+          {단계 === 3 && 추천알림열림 && <CandidateNotification count={Math.min(3, 후보.length)} onOpen={추천알림열기} />}
           {안내 && <div className="carrier-toast" role="status">{안내}</div>}
           <MenuDrawer open={메뉴열림} onClose={() => set메뉴열림(false)} />
         </div>

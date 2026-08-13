@@ -11,13 +11,16 @@ export interface 추천콜상세 extends 운송인추천콜 {
   공차거리km: number
   /** 하차 후 복화(귀로 화물) 잡힐 확률 0~1 */
   복화가능성: number
+  /** 상차 예정 시각. 매칭 API가 주지 않으면 화면용 기준 데이터에서 채운다. */
+  상차시각: string
 }
 
-/** 백엔드 응답 한 행에서 확장 필드만 뽑는다. 없으면 0 이다 */
-export function 확장필드(row: Record<string, unknown>): Pick<추천콜상세, '공차거리km' | '복화가능성'> {
+/** 백엔드 응답 한 행에서 확장 필드만 뽑는다. */
+export function 확장필드(row: Record<string, unknown>): Pick<추천콜상세, '공차거리km' | '복화가능성' | '상차시각'> {
   const 숫자 = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   return {
     공차거리km: 숫자(row['공차거리km']),
     복화가능성: 숫자(row['복화가능성']),
+    상차시각: typeof row['상차시각'] === 'string' ? row['상차시각'] : '시간 확인 중',
   }
 }

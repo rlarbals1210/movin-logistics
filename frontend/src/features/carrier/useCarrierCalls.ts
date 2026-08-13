@@ -46,11 +46,14 @@ function 상세로(raw: unknown): 추천콜상세[] {
 
   return 기본.map((콜) => ({
     ...콜,
-    ...확장필드(원본행.get(콜.콜ID) ?? 추천콜_확장기본값[콜.콜ID] ?? {}),
+    ...확장필드({
+      ...(추천콜_확장기본값[콜.콜ID] ?? {}),
+      ...(원본행.get(콜.콜ID) ?? {}),
+    }),
   }))
 }
 
-export function useCarrierCalls(운송인ID: string): CarrierCallsState {
+export function useCarrierCalls(운송인ID: string, 매칭쿼리 = ''): CarrierCallsState {
   const [state, setState] = useState<CarrierCallsState>({
     목록: [],
     상태: 'loading',
@@ -58,13 +61,18 @@ export function useCarrierCalls(운송인ID: string): CarrierCallsState {
   })
 
   useEffect(() => {
+    if (매칭쿼리 === '') {
+      setState({ 목록: [], 상태: 'loading', 출처: '폴백' })
+      return
+    }
+
     // StrictMode 는 개발에서 effect 를 두 번 돌린다. 늦게 온 응답이
     // 먼저 온 응답을 덮어쓰지 않게 취소한다.
     const controller = new AbortController()
 
     setState({ 목록: [], 상태: 'loading', 출처: '폴백' })
 
-    get<unknown>(`/v1/matches/carrier/${encodeURIComponent(운송인ID)}`, {
+    get<unknown>(`/v1/matches/carrier/${encodeURIComponent(운송인ID)}?${매칭쿼리}`, {
       signal: controller.signal,
     })
       .then((raw) => {
@@ -80,7 +88,7 @@ export function useCarrierCalls(운송인ID: string): CarrierCallsState {
       })
 
     return () => controller.abort()
-  }, [운송인ID])
+  }, [운송인ID, 매칭쿼리])
 
   return state
 }

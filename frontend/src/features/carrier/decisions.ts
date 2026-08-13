@@ -31,3 +31,22 @@ export function 결정전송(결정값: 결정): void {
     사유: 결정값.사유 ?? null,
   }).catch(() => {})
 }
+
+/**
+ * 콜 확정 피드백. ACCEPT 계약을 명시하고 실패는 boolean으로만 돌려준다.
+ * 호출부는 이 결과와 무관하게 다음 운행 화면으로 진행한다.
+ */
+export async function 수락피드백전송(콜ID: string): Promise<boolean> {
+  try {
+    await post('/v1/carrier/decisions', {
+      콜ID,
+      action: 'ACCEPT',
+      feedback: 'ACCEPT',
+      선택여부: true,
+      사유: null,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
