@@ -65,7 +65,7 @@ function RegionSelector({ label, region, detail, custom, onChange }: RegionSelec
       </div>
 
       {selectedGroup && (
-        <div className="mt-md rounded-xl bg-surface-container-low p-md">
+        <div className="mt-md rounded-xl bg-surface-container-low p-md animate-[mv-panel-in_160ms_ease-out] motion-reduce:animate-none">
           <p className="text-label-sm font-bold text-secondary">세부 위치</p>
           <div className="mt-sm flex flex-wrap gap-sm">
             {selectedGroup.locations.map((location) => (
@@ -88,7 +88,7 @@ function RegionSelector({ label, region, detail, custom, onChange }: RegionSelec
       )}
 
       {region === '기타' && (
-        <label className="mt-md block">
+        <label className="mt-md block animate-[mv-panel-in_160ms_ease-out] motion-reduce:animate-none">
           <span className="text-label-sm font-bold text-secondary">직접 입력</span>
           <input
             value={custom}
@@ -348,7 +348,7 @@ function OptionGrid({
           value={custom}
           onChange={(event) => onChange(value, event.target.value)}
           placeholder={customPlaceholder}
-          className="mt-md h-12 w-full rounded-xl border border-outline-variant bg-white px-md text-body-md font-bold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
+          className="mt-md h-12 w-full rounded-xl border border-outline-variant bg-white px-md text-body-md font-bold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary animate-[mv-panel-in_160ms_ease-out] motion-reduce:animate-none"
         />
       )}
     </>
