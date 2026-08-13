@@ -290,7 +290,7 @@ function ShipperScreen() {
           </div>
 
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_288px] items-start gap-lg">
-            <div className="min-w-0">
+            <div key={activeTab} className="min-w-0 animate-[mv-panel-in_200ms_ease-out] motion-reduce:animate-none">
               {activeTab === 'settings' && (
                 <PreferenceSetup selections={selections} answeredCount={answeredCount} onToggle={togglePreference} onSave={savePreferences} />
               )}
