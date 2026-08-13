@@ -569,7 +569,7 @@ function MenuDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
       <aside className="carrier-drawer" role="dialog" aria-modal="true" aria-label="운송인 메뉴" onClick={(event) => event.stopPropagation()}>
         <div className="carrier-drawer-head"><strong>Mov!n 운송인</strong><button type="button" onClick={onClose} aria-label="메뉴 닫기"><Icon name="close" /></button></div>
         <div className="carrier-drawer-profile"><span><Icon name="user" /></span><div><strong>운송인</strong><small>5톤 카고 · 수도권 기반</small></div></div>
-        <nav><button type="button" onClick={onClose}>운행 홈</button><button type="button" onClick={onClose}>내 차량 정보</button><button type="button" onClick={onClose}>고객센터</button><a href="/shipper">화주 화면으로 전환</a></nav>
+        <nav><button type="button" onClick={onClose}>운행 홈</button><button type="button" onClick={onClose}>내 차량 정보</button><button type="button" onClick={onClose}>고객센터</button><a href="/shipper">화주/주선사 화면으로 전환</a></nav>
       </aside>
     </div>
   )

@@ -26,10 +26,10 @@ function PreferenceSetup({
         <div className="flex flex-col gap-lg md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <h1 id="preference-setup-title" className="text-[28px] font-black leading-tight tracking-[-0.03em] text-on-surface md:text-[32px]">
-              화주 선호 조건 설정
+              화주/주선사 선호 조건 설정
             </h1>
             <p className="mt-sm text-body-lg text-secondary">
-              발주할 때 중요하게 보는 조건을 선택해 주세요. 답변은 이후 AI 조정안과 운송 추천의 표시 순서에 반영됩니다.
+              발주 시 주요 고려 항목을 선택해 주십시오. 답변은 이후 AI 조정안과 운송 추천의 표시 순서에 반영됩니다.
             </p>
           </div>
           <div className="min-w-[180px] rounded-xl bg-surface-container-low px-md py-sm">
@@ -113,7 +113,7 @@ function PreferenceSetup({
 
       <div className="flex flex-col items-stretch justify-between gap-md rounded-2xl bg-on-secondary-fixed px-lg py-lg text-secondary-fixed md:flex-row md:items-center md:px-xl">
         <div>
-          <p className="text-label-md font-bold text-primary-fixed">선택 내용은 내 정보에서 다시 수정할 수 있어요.</p>
+          <p className="text-label-md font-bold text-primary-fixed">선택 정보는 내 정보에서 다시 수정할 수 있어요.</p>
           <p className="mt-xs text-body-md text-secondary-fixed-dim">
             세 질문에 모두 답하면 다음 단계인 콜 등록을 시작할 수 있습니다.
           </p>

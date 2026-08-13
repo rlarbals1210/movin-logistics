@@ -183,7 +183,7 @@ function CurrentDispatch({ activeTab, form, decision, options }: { activeTab: Sh
       <div className="flex items-center justify-between gap-lg border-b border-outline-variant pb-md">
         <div>
           <h2 id="current-dispatch-title" className="text-headline-sm font-black text-on-surface">현재 배차 정보</h2>
-          <p className="mt-xs text-body-md text-secondary">모든 화주 탭에서 동일하게 표시됩니다.</p>
+          <p className="mt-xs text-body-md text-secondary">모든 화주/주선사 탭에서 동일하게 표시됩니다.</p>
         </div>
         <span className="inline-flex items-center gap-xs rounded-full bg-surface-container px-md py-sm text-label-sm font-bold text-on-surface">
           <span className="h-2 w-2 rounded-full bg-primary-container" />
@@ -268,7 +268,7 @@ function ShipperScreen() {
         <div className="flex items-center">
           <span className="mr-xl text-headline-md font-black tracking-[-0.04em] text-on-surface">Mov!n</span>
           <div className="flex gap-lg">
-            <a className="border-b-2 border-primary py-2 text-label-md font-bold text-primary" href="/shipper">화주</a>
+            <a className="border-b-2 border-primary py-2 text-label-md font-bold text-primary" href="/shipper">화주/주선사</a>
             <a className="py-2 text-label-md text-secondary transition-colors hover:text-on-surface" href="/carrier">운송인</a>
           </div>
         </div>
@@ -279,17 +279,17 @@ function ShipperScreen() {
           <button type="button" aria-label="설정" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container">
             <span className="material-symbols-outlined text-on-surface" aria-hidden="true">settings</span>
           </button>
-          <div className="ml-xs flex h-9 w-9 items-center justify-center rounded-full bg-on-secondary-fixed text-label-sm font-black text-primary-fixed" aria-label="화주 프로필">화주</div>
+          <div className="ml-xs flex h-9 items-center justify-center rounded-full bg-on-secondary-fixed px-md text-label-sm font-black text-primary-fixed" aria-label="화주/주선사 프로필">화주/주선사</div>
         </div>
       </nav>
 
       <div className="flex min-h-screen pt-16">
         <aside className="fixed left-0 top-16 z-40 flex h-[calc(100vh-64px)] w-[232px] flex-col bg-on-secondary-fixed py-lg shadow-sm">
           <div className="px-lg pb-lg">
-            <h2 className="text-headline-sm font-black text-primary-fixed">화주 업무</h2>
+            <h2 className="text-headline-sm font-black text-primary-fixed">화주/주선사 업무</h2>
             <p className="mt-xs text-label-sm text-secondary-fixed-dim">발주부터 리포트까지 5단계</p>
           </div>
-          <nav className="flex-1" aria-label="화주 업무 탭">
+          <nav className="flex-1" aria-label="화주/주선사 업무 탭">
             {shipperTabs.map((tab, index) => {
               const isActive = tab.id === activeTab
               const progress = tabProgress(tab.id)
@@ -328,7 +328,7 @@ function ShipperScreen() {
 
         <main className="ml-[232px] min-w-0 flex-1 p-6">
           <div className="mb-lg flex items-center gap-sm text-label-sm text-secondary">
-            <span>화주 업무</span>
+            <span>화주/주선사 업무</span>
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span>
             <strong className="text-on-surface">{shipperTabs[activeTabIndex].label}</strong>
             <span className="ml-auto font-bold text-on-surface">{activeTabIndex + 1}/5 단계</span>

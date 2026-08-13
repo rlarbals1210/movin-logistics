@@ -24,11 +24,11 @@ function ShipperProfile({ selections, form, modelMetadata, decision, onEditPrefe
     <section className="space-y-lg" aria-labelledby="profile-title">
       <div className="rounded-2xl border border-outline-variant bg-white p-xl">
         <h1 id="profile-title" className="text-[32px] font-black leading-tight tracking-[-0.03em] text-on-surface">내 정보</h1>
-        <p className="mt-sm text-body-lg text-secondary">화주 기본정보와 분석에 사용된 데이터, 선호 조건, 최근 운영 기록을 관리합니다.</p>
+        <p className="mt-sm text-body-lg text-secondary">화주/주선사 기본정보와 분석에 사용된 데이터, 선호 조건, 최근 운영 기록을 관리합니다.</p>
         <div className="mt-xl grid grid-cols-2 gap-md">
           <div className="rounded-xl bg-surface-container-low p-lg">
             <p className="text-label-sm text-secondary">회사 정보</p>
-            <p className="mt-sm text-headline-sm font-black text-on-surface">Mov!n 데모 화주</p>
+            <p className="mt-sm text-headline-sm font-black text-on-surface">Mov!n 데모 화주/주선사</p>
             <p className="mt-xs text-body-md text-secondary">물류 운영팀 · 기업 정보 API 연결 전</p>
           </div>
           <div className="rounded-xl bg-surface-container-low p-lg">
@@ -43,7 +43,7 @@ function ShipperProfile({ selections, form, modelMetadata, decision, onEditPrefe
         <section className="rounded-2xl border border-outline-variant bg-white p-xl">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-headline-sm font-black text-on-surface">화주 선호 조건</h2>
+              <h2 className="text-headline-sm font-black text-on-surface">화주/주선사 선호 조건</h2>
               <p className="mt-xs text-body-md text-secondary">필수 설정에서 선택한 기준입니다.</p>
             </div>
             <button type="button" onClick={onEditPreferences} className="inline-flex min-h-11 items-center gap-sm rounded-full border border-outline px-lg text-label-md font-black text-on-surface hover:bg-surface-container-low">

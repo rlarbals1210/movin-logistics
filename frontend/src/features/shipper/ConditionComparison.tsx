@@ -346,7 +346,7 @@ function DecisionDialog({
               <p className="mt-lg rounded-xl bg-surface-container-low p-md text-body-md font-bold leading-6 text-secondary">
                 {adjusted.dispatchMinutes > current.dispatchMinutes
                   ? `이 원본 조합에서는 후보와 운임은 개선되지만 예상 배차시간은 ${adjusted.dispatchMinutes - current.dispatchMinutes}분 늘어납니다. 어느 지표를 우선할지 직접 선택하세요.`
-                  : `이 원본 조합에서는 예상 배차시간이 ${current.dispatchMinutes - adjusted.dispatchMinutes}분 단축됩니다. 최종 선택은 화주가 결정합니다.`}
+                  : `이 원본 조합에서는 예상 배차시간이 ${current.dispatchMinutes - adjusted.dispatchMinutes}분 단축됩니다. 최종 선택은 화주/주선사가 결정합니다.`}
               </p>
             </div>
 
