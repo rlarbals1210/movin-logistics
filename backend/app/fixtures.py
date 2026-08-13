@@ -20,12 +20,28 @@
 """
 
 import hashlib
+import os
 import json
 from pathlib import Path
 from typing import Any
 
-# backend/app/fixtures.py → 레포 루트
-_PREDICTIONS_PATH = Path(__file__).resolve().parents[2] / "frontend" / "src" / "data" / "predictions.json"
+_APP_DIR = Path(__file__).resolve().parent
+
+# 찾을 후보를 순서대로 둔다. 배포 형태마다 레포 구조가 통째로 오지 않기 때문이다.
+#
+# Railway 는 backend/ 를 루트로 배포한다(Procfile 이 거기 있고 start 가 app.main:app 이다).
+# 그 이미지 안에는 frontend/ 가 아예 없어서, 레포 상대경로만 보면 항상 폴백으로 떨어진다.
+# 실제로 그렇게 됐다 — 배포본이 09:30 고정값을 서빙하고 있었다.
+#
+#   1) PREDICTIONS_PATH 환경변수 — 배포에서 위치를 바꿔야 할 때 코드 수정 없이 쓴다
+#   2) 레포의 정본 — 로컬·레포 전체 배포에서 여기가 잡힌다. ai 산출물이 직접 갱신하는 파일이다
+#   3) backend 안 사본 — backend/ 만 배포되는 환경용. 정본을 복사해 커밋해 둔다
+#
+# 2번이 3번보다 앞이라 로컬에서는 항상 정본을 쓴다. 사본이 뒤처져도 로컬 결과가 흔들리지 않는다.
+_PREDICTIONS_CANDIDATES = [
+    _APP_DIR.parents[1] / "frontend" / "src" / "data" / "predictions.json",
+    _APP_DIR / "data" / "predictions.json",
+]
 
 _톤급_목록 = (5, 11, 25)
 _시간창_목록 = (40, 120, 240, 480, 1440)
@@ -148,13 +164,27 @@ def _로드() -> tuple[dict[str, Any], str | None, dict[str, str]]:
     응답 = {k: v for k, v in FIXED_RESPONSE.items()}
     출처 = {"화주_시나리오": "fixture", "운송인_추천콜": "fixture", "모델지표": "fixture"}
 
-    try:
-        원문 = _PREDICTIONS_PATH.read_bytes()
-        데이터 = json.loads(원문)
-    except (OSError, ValueError):
-        return 응답, None, 출처
+    후보들 = []
+    환경변수 = os.getenv("PREDICTIONS_PATH", "").strip()
+    if 환경변수:
+        후보들.append(Path(환경변수).expanduser())
+    후보들.extend(_PREDICTIONS_CANDIDATES)
 
-    if not isinstance(데이터, dict):
+    원문 = None
+    데이터 = None
+    for 후보 in 후보들:
+        try:
+            원문 = 후보.read_bytes()
+            데이터 = json.loads(원문)
+        except (OSError, ValueError):
+            continue
+        # 어느 경로를 썼는지 기동 로그에 남긴다. 배포에서 폴백으로 떨어졌을 때
+        # 컨테이너에 들어가지 않고도 원인을 알 수 있어야 한다.
+        print(f"[fixtures] predictions 로드: {후보}")
+        break
+
+    if not isinstance(데이터, dict) or 원문 is None:
+        print(f"[fixtures] predictions 를 못 찾았다. 고정값으로 서빙한다. 찾아본 곳: {[str(p) for p in 후보들]}")
         return 응답, None, 출처
 
     갱신됨 = False
