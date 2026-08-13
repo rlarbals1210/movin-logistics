@@ -213,7 +213,7 @@ function ShipperScreen() {
   const [callForm, setCallForm] = useState<CallForm>(emptyCallForm)
   const [comparisonOptions, setComparisonOptions] = useState<ComparisonOptions>(initialComparisonOptions)
   const [decision, setDecision] = useState<DispatchDecision>(null)
-  const { scenarios, modelMetadata } = useShipperScenarios()
+  const { scenarios, modelMetadata, 상태: 시나리오상태 } = useShipperScenarios()
 
   const answeredCount = preferenceGroups.filter((group) => selections[group.id].length > 0).length
   const registrationCompletion = callFieldCompletion(callForm)
@@ -286,6 +286,11 @@ function ShipperScreen() {
             <span>화주/주선사 업무</span>
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span>
             <strong className="text-on-surface">{shipperTabs[activeTabIndex].label}</strong>
+            {시나리오상태 === 'loading' && (
+              <span className="animate-pulse text-label-sm text-secondary" role="status">
+                최신 시나리오 불러오는 중…
+              </span>
+            )}
             <span className="ml-auto font-bold text-on-surface">{activeTabIndex + 1}/5 단계</span>
           </div>
 
