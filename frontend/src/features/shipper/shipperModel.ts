@@ -17,6 +17,21 @@ export function minutesToTime(minutes: number) {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
 }
 
+export function dayRelativeTime(minutes: number) {
+  const dayOffset = Math.floor(minutes / 1440)
+  const dayLabel = dayOffset <= 0 ? '당일' : dayOffset === 1 ? '익일' : `+${dayOffset}일`
+  return `${dayLabel} ${minutesToTime(minutes)}`
+}
+
+export function formatLoadingTimeWindow(start: number, end: number) {
+  let absoluteEnd = end
+  while (absoluteEnd <= start) absoluteEnd += 1440
+
+  const crossesDate = start >= 1440 || absoluteEnd >= 1440
+  if (!crossesDate) return `${minutesToTime(start)}~${minutesToTime(absoluteEnd)}`
+  return `${dayRelativeTime(start)} ~ ${dayRelativeTime(absoluteEnd)}`
+}
+
 export function timeWindowDuration(start: number, end: number) {
   const duration = end - start
   return duration > 0 ? duration : duration + 1440
@@ -134,9 +149,9 @@ export function adjustedWindowLabel(form: CallForm, durationMinutes: number) {
   if (durationMinutes >= 1440) return '00:00~24:00'
   const currentDuration = timeWindowDuration(form.loadingStartMinutes, form.loadingEndMinutes)
   const center = form.loadingStartMinutes + currentDuration / 2
-  const start = (center - durationMinutes / 2 + 1440) % 1440
-  const end = (start + durationMinutes) % 1440
-  return `${minutesToTime(start)}~${minutesToTime(end)}`
+  const start = center - durationMinutes / 2
+  const end = start + durationMinutes
+  return formatLoadingTimeWindow(start, end)
 }
 
 export function callFieldCompletion(form: CallForm) {

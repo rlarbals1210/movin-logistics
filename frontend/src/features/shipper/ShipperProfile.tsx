@@ -1,5 +1,5 @@
 import { operationLogs, shipperReportMetrics } from './shipperData'
-import { formatDate, getSelectedCargo, getSelectedLocation, getSelectedVehicle, minutesToTime } from './shipperModel'
+import { formatDate, formatLoadingTimeWindow, getSelectedCargo, getSelectedLocation, getSelectedVehicle } from './shipperModel'
 import { preferenceGroups, type PreferenceSelections } from './shipperPreferences'
 import type { CallForm, DispatchDecision, ShipperModelMetadata } from './shipperTypes'
 
@@ -100,7 +100,7 @@ function ShipperProfile({ selections, form, modelMetadata, decision, onBackToMai
             ['차량', getSelectedVehicle(form) || '미선택'],
             ['품목', getSelectedCargo(form) || '미선택'],
             ['상차 날짜', formatDate(form.loadingDate)],
-            ['상차 시간', `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`],
+            ['상차 시간', formatLoadingTimeWindow(form.loadingStartMinutes, form.loadingEndMinutes)],
             ['최근 선택', decision === 'adjusted' ? '조정안으로 등록' : decision === 'current' ? '현재 조건 유지' : '미선택'],
             ['운송인 응답', decision ? '응답 대기' : '등록 전'],
             ['데이터 갱신', '프론트 상태 실시간 반영'],

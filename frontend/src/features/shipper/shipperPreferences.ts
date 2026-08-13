@@ -2,6 +2,41 @@ export type PreferenceGroupId = 'priority' | 'schedule'
 
 export type PreferenceSelections = Record<PreferenceGroupId, string[]>
 
+export type ScheduleWindow = {
+  label: string
+  startMinutes: number
+  endMinutes: number
+}
+
+export const schedulePreferenceOptions = {
+  morning: '오전 상차 06:00~12:00',
+  afternoon: '오후 상차 12:00~18:00',
+  night: '야간 상차 18:00~06:00',
+  adjustable: '일정 조정 가능',
+} as const
+
+const restrictedScheduleWindows: Record<string, ScheduleWindow> = {
+  [schedulePreferenceOptions.morning]: {
+    label: '오전 상차',
+    startMinutes: 6 * 60,
+    endMinutes: 12 * 60,
+  },
+  [schedulePreferenceOptions.afternoon]: {
+    label: '오후 상차',
+    startMinutes: 12 * 60,
+    endMinutes: 18 * 60,
+  },
+  [schedulePreferenceOptions.night]: {
+    label: '야간 상차',
+    startMinutes: 18 * 60,
+    endMinutes: 24 * 60 + 6 * 60,
+  },
+}
+
+export function getRestrictedScheduleWindow(option?: string) {
+  return option ? restrictedScheduleWindows[option] ?? null : null
+}
+
 type PreferenceGroup = {
   id: PreferenceGroupId
   number: string
@@ -29,10 +64,10 @@ export const preferenceGroups: PreferenceGroup[] = [
     description: '실제 발주에서 조정할 수 있는 상차 시간대를 선택해 주세요.',
     icon: 'calendar_today',
     options: [
-      '오전 상차 06:00~12:00',
-      '오후 상차 12:00~18:00',
-      '야간 상차 18:00~06:00',
-      '일정 조정 가능',
+      schedulePreferenceOptions.morning,
+      schedulePreferenceOptions.afternoon,
+      schedulePreferenceOptions.night,
+      schedulePreferenceOptions.adjustable,
     ],
     maxSelect: 1,
   },

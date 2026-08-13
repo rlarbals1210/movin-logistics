@@ -10,14 +10,16 @@ import {
   adjustedWindowLabel,
   callFieldCompletion,
   formatDate,
+  formatLoadingTimeWindow,
   getCurrentScenario,
   getNextRelaxedWindow,
   getSelectedCargo,
   getSelectedLocation,
   getSelectedVehicle,
-  minutesToTime,
+  timeWindowDuration,
 } from './features/shipper/shipperModel'
 import {
+  getRestrictedScheduleWindow,
   preferenceGroups,
   type PreferenceGroupId,
   type PreferenceSelections,
@@ -77,7 +79,7 @@ function DecisionSummary({
   const effectiveDate = adjusted && options.allowDateDelay ? addDaysToDate(form.loadingDate, 1) : form.loadingDate
   const effectiveTime = adjusted
     ? adjustedWindowLabel(form, options.relaxedWindowMinutes)
-    : `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`
+    : formatLoadingTimeWindow(form.loadingStartMinutes, form.loadingEndMinutes)
   const route = [
     getSelectedLocation(form.originRegion, form.originDetail, form.originCustom),
     getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom),
@@ -159,7 +161,7 @@ function CurrentDispatch({ activeTab, form, decision, options }: { activeTab: Sh
   const effectiveDate = adjusted && options.allowDateDelay ? addDaysToDate(form.loadingDate, 1) : form.loadingDate
   const effectiveTime = adjusted
     ? adjustedWindowLabel(form, options.relaxedWindowMinutes)
-    : `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`
+    : formatLoadingTimeWindow(form.loadingStartMinutes, form.loadingEndMinutes)
   const statusByTab: Record<ShipperTabId, string> = {
     settings: '필수 설정 중',
     register: completion === 6 ? '조건 비교 가능' : `콜 정보 ${completion}/6`,
@@ -221,6 +223,25 @@ function ShipperScreen() {
 
   const togglePreference = (groupId: PreferenceGroupId, option: string) => {
     setPreferencesSaved(false)
+    if (groupId === 'schedule' && !selections.schedule.includes(option)) {
+      const restrictedWindow = getRestrictedScheduleWindow(option)
+      if (restrictedWindow) {
+        setCallForm((currentForm) => {
+          const selectedDuration = timeWindowDuration(currentForm.loadingStartMinutes, currentForm.loadingEndMinutes)
+          const allowedDuration = restrictedWindow.endMinutes - restrictedWindow.startMinutes
+          const nextDuration = Math.min(selectedDuration, allowedDuration)
+          const nextStart = Math.min(
+            Math.max(currentForm.loadingStartMinutes, restrictedWindow.startMinutes),
+            restrictedWindow.endMinutes - nextDuration,
+          )
+          return {
+            ...currentForm,
+            loadingStartMinutes: nextStart,
+            loadingEndMinutes: nextStart + nextDuration,
+          }
+        })
+      }
+    }
     setSelections((currentSelections) => {
       const group = preferenceGroups.find((currentGroupOption) => currentGroupOption.id === groupId)!
       const currentGroup = currentSelections[groupId]
@@ -309,6 +330,7 @@ function ShipperScreen() {
                   form={callForm}
                   modelMetadata={modelMetadata}
                   preferencesSaved={preferencesSaved}
+                  schedulePreference={selections.schedule[0]}
                   onChange={(next) => {
                     setCallForm(next)
                     setDecision(null)

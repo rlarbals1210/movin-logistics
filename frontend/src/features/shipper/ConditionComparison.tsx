@@ -4,6 +4,7 @@ import { windowOptions } from './shipperData'
 import {
   addMinutesToTime,
   formatDate,
+  formatLoadingTimeWindow,
   formatShortCurrency,
   formatWindow,
   getCurrentScenario,
@@ -12,7 +13,6 @@ import {
   getSelectedCargo,
   getSelectedLocation,
   getSelectedVehicle,
-  minutesToTime,
   timeWindowDuration,
   시나리오_facts,
   차종대체계산출처,
@@ -123,7 +123,7 @@ function TimeWindowTrack({ form, durationMinutes, label }: { form: CallForm; dur
         ))}
       </div>
       <p className="mt-sm text-body-md font-bold text-on-surface">
-        {durationMinutes >= 1440 ? '00:00~24:00' : `${minutesToTime(start)}~${minutesToTime(end)}`}
+        {durationMinutes >= 1440 ? '00:00~24:00' : formatLoadingTimeWindow(start, end)}
       </p>
     </div>
   )
@@ -470,7 +470,7 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
             ['노선', route],
             ['차량', getSelectedVehicle(form) || '미선택'],
             ['품목', getSelectedCargo(form) || '미선택'],
-            ['상차', `${formatDate(form.loadingDate)} · ${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`],
+            ['상차', `${formatDate(form.loadingDate)} · ${formatLoadingTimeWindow(form.loadingStartMinutes, form.loadingEndMinutes)}`],
           ].map(([label, value]) => (
             <div key={label}>
               <p className="text-label-sm text-secondary">{label}</p>
@@ -515,7 +515,7 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
               ['차량', getSelectedVehicle(form) || '미선택'],
               ['품목', getSelectedCargo(form) || '미선택'],
               ['상차 날짜', formatDate(form.loadingDate)],
-              ['상차 시간', `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`],
+              ['상차 시간', formatLoadingTimeWindow(form.loadingStartMinutes, form.loadingEndMinutes)],
               ['원본 표본', `${current.tonnage}t × ${current.windowMinutes}분 · 학습 ${modelMetadata.trainingRows.toLocaleString('ko-KR')}행`],
             ].map(([label, value]) => (
               <div key={label}>

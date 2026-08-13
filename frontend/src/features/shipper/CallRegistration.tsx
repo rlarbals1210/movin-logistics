@@ -2,19 +2,23 @@ import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } fro
 import { cargoOptions, regionGroups, vehicleOptions } from './shipperData'
 import {
   callFieldCompletion,
+  dayRelativeTime,
   formatDate,
+  formatLoadingTimeWindow,
   getSelectedCargo,
   getSelectedLocation,
   getSelectedVehicle,
   minutesToTime,
   timeWindowDuration,
 } from './shipperModel'
+import { getRestrictedScheduleWindow, type ScheduleWindow } from './shipperPreferences'
 import type { CallForm, ShipperModelMetadata } from './shipperTypes'
 
 type CallRegistrationProps = {
   form: CallForm
   modelMetadata: ShipperModelMetadata
   preferencesSaved: boolean
+  schedulePreference?: string
   onChange: (next: CallForm) => void
   onContinue: () => void
 }
@@ -191,10 +195,12 @@ function arcPath(start: number, end: number, radius: number) {
 function CircularTimePicker({
   start,
   end,
+  allowedWindow,
   onChange,
 }: {
   start: number
   end: number
+  allowedWindow: ScheduleWindow | null
   onChange: (start: number, end: number) => void
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -202,6 +208,23 @@ function CircularTimePicker({
   const startPoint = polarPoint(start, 104)
   const endPoint = polarPoint(end, 104)
   const duration = timeWindowDuration(start, end)
+  const isOvernightWindow = Boolean(allowedWindow && allowedWindow.endMinutes > 1440)
+
+  const projectToAllowedWindow = (minutes: number) => {
+    if (!allowedWindow) return minutes
+
+    let projected = allowedWindow.startMinutes
+    let shortestDistance = Number.POSITIVE_INFINITY
+    for (const candidate of [minutes - 1440, minutes, minutes + 1440]) {
+      const nextProjected = Math.min(Math.max(candidate, allowedWindow.startMinutes), allowedWindow.endMinutes)
+      const distance = Math.abs(candidate - nextProjected)
+      if (distance < shortestDistance) {
+        projected = nextProjected
+        shortestDistance = distance
+      }
+    }
+    return projected
+  }
 
   const minutesFromPointer = (event: ReactPointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect()
@@ -214,8 +237,18 @@ function CircularTimePicker({
   }
 
   const moveTarget = (target: 'start' | 'end', minutes: number) => {
-    if (target === 'start') onChange(minutes, end)
-    else onChange(start, minutes)
+    if (!allowedWindow) {
+      if (target === 'start') onChange(minutes, end)
+      else onChange(start, minutes)
+      return
+    }
+
+    const projectedMinutes = projectToAllowedWindow(minutes)
+    if (target === 'start') {
+      onChange(Math.min(projectedMinutes, end - 30), end)
+    } else {
+      onChange(start, Math.max(projectedMinutes, start + 30))
+    }
   }
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -225,9 +258,11 @@ function CircularTimePicker({
   }
 
   const setNearestHandle = (event: ReactPointerEvent<SVGSVGElement>) => {
-    const minutes = minutesFromPointer(event)
-    const startGap = Math.min(Math.abs(minutes - start), 1440 - Math.abs(minutes - start))
-    const endGap = Math.min(Math.abs(minutes - end), 1440 - Math.abs(minutes - end))
+    const rawMinutes = minutesFromPointer(event)
+    const minutes = projectToAllowedWindow(rawMinutes)
+    const normalizedEnd = ((end % 1440) + 1440) % 1440
+    const startGap = allowedWindow ? Math.abs(minutes - start) : Math.min(Math.abs(minutes - start), 1440 - Math.abs(minutes - start))
+    const endGap = allowedWindow ? Math.abs(minutes - end) : Math.min(Math.abs(minutes - normalizedEnd), 1440 - Math.abs(minutes - normalizedEnd))
     const nextTarget = startGap <= endGap ? 'start' : 'end'
     setDragTarget(nextTarget)
     moveTarget(nextTarget, minutes)
@@ -235,12 +270,25 @@ function CircularTimePicker({
 
   return (
     <div className="rounded-xl border border-outline-variant bg-white p-lg">
+      {allowedWindow && (
+        <div className="mb-md flex items-center justify-between gap-md rounded-xl border border-[#e4ce00] bg-[#fff9cc] px-md py-sm" role="status">
+          <div>
+            <p className="text-label-md font-black text-on-surface">{allowedWindow.label} 범위 적용</p>
+            <p className="mt-xs text-label-sm text-secondary">
+              {isOvernightWindow
+                ? '당일 18:00부터 익일 06:00 사이에서만 조정할 수 있어요.'
+                : `${minutesToTime(allowedWindow.startMinutes)}~${minutesToTime(allowedWindow.endMinutes)} 사이에서만 조정할 수 있어요.`}
+            </p>
+          </div>
+          <span className="material-symbols-outlined shrink-0 text-primary" aria-hidden="true">lock_clock</span>
+        </div>
+      )}
       <svg
         ref={svgRef}
         viewBox="0 0 300 300"
         className="mx-auto h-[300px] w-[300px] touch-none select-none"
         role="img"
-        aria-label={`24시간 시계, ${minutesToTime(start)}부터 ${minutesToTime(end)}까지`}
+        aria-label={`24시간 시계, ${formatLoadingTimeWindow(start, end)}`}
         onPointerDown={setNearestHandle}
         onPointerMove={handlePointerMove}
         onPointerUp={() => setDragTarget(null)}
@@ -248,6 +296,9 @@ function CircularTimePicker({
       >
         <circle cx="150" cy="150" r="126" fill="#f9f9f9" stroke="#cdc7aa" strokeWidth="1" />
         <circle cx="150" cy="150" r="104" fill="none" stroke="#e8e8e8" strokeWidth="18" />
+        {allowedWindow && (
+          <path d={arcPath(allowedWindow.startMinutes, allowedWindow.endMinutes, 104)} fill="none" stroke="#fff3a0" strokeWidth="22" strokeLinecap="round" />
+        )}
         <path d={arcPath(start, end, 104)} fill="none" stroke="#fee500" strokeWidth="18" strokeLinecap="round" />
         {Array.from({ length: 24 }, (_, hour) => {
           const outer = polarPoint(hour * 60, 120)
@@ -262,6 +313,12 @@ function CircularTimePicker({
             </g>
           )
         })}
+        {isOvernightWindow && (
+          <g>
+            <rect x="119" y="25" width="62" height="20" rx="10" fill="#1c1b1b" />
+            <text x="150" y="39" textAnchor="middle" fontSize="10" fontWeight="800" fill="#fee500">00:00 · 익일</text>
+          </g>
+        )}
         <circle cx={startPoint.x} cy={startPoint.y} r="12" fill="#1c1b1b" stroke="#fee500" strokeWidth="4" />
         <circle cx={endPoint.x} cy={endPoint.y} r="12" fill="#1c1b1b" stroke="#fee500" strokeWidth="4" />
         <text x="150" y="137" textAnchor="middle" fontSize="13" fontWeight="700" fill="#5f5e5e">상차 시간창</text>
@@ -270,7 +327,7 @@ function CircularTimePicker({
 
       <div className="mt-lg">
         <h3 className="text-headline-sm font-bold text-on-surface">시계의 두 점을 드래그하세요</h3>
-        <p className="mt-xs text-body-md text-secondary">30분 단위로 시작과 종료 시각을 조정할 수 있습니다.</p>
+        <p className="mt-xs text-body-md text-secondary">30분 단위로 시작과 종료 시각을 조정할 수 있습니다.{allowedWindow ? ' 선택한 가능 일정의 바깥 시간은 잠겨 있습니다.' : ''}</p>
         <div className="mt-lg grid grid-cols-2 gap-md">
           {([
             ['start', '시작 시각', start],
@@ -278,21 +335,23 @@ function CircularTimePicker({
           ] as const).map(([target, label, value]) => (
             <div key={target} className="rounded-xl bg-surface-container-low p-md">
               <p className="text-label-sm font-bold text-secondary">{label}</p>
-              <p className="mt-xs text-headline-md font-black text-on-surface">{minutesToTime(value)}</p>
+              <p className="mt-xs text-headline-md font-black text-on-surface">{allowedWindow ? dayRelativeTime(value) : minutesToTime(value)}</p>
               <div className="mt-md flex gap-sm">
                 <button
                   type="button"
                   aria-label={`${label} 30분 앞당기기`}
-                  onClick={() => moveTarget(target, (value - 30 + 1440) % 1440)}
-                  className="flex h-9 flex-1 items-center justify-center rounded-lg border border-outline-variant bg-white text-label-sm font-bold text-on-surface hover:border-outline"
+                  disabled={Boolean(allowedWindow && (target === 'start' ? value <= allowedWindow.startMinutes : value <= start + 30))}
+                  onClick={() => moveTarget(target, allowedWindow ? value - 30 : (value - 30 + 1440) % 1440)}
+                  className="flex h-9 flex-1 items-center justify-center rounded-lg border border-outline-variant bg-white text-label-sm font-bold text-on-surface hover:border-outline disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   -30분
                 </button>
                 <button
                   type="button"
                   aria-label={`${label} 30분 늦추기`}
-                  onClick={() => moveTarget(target, (value + 30) % 1440)}
-                  className="flex h-9 flex-1 items-center justify-center rounded-lg border border-outline-variant bg-white text-label-sm font-bold text-on-surface hover:border-outline"
+                  disabled={Boolean(allowedWindow && (target === 'start' ? value >= end - 30 : value >= allowedWindow.endMinutes))}
+                  onClick={() => moveTarget(target, allowedWindow ? value + 30 : (value + 30) % 1440)}
+                  className="flex h-9 flex-1 items-center justify-center rounded-lg border border-outline-variant bg-white text-label-sm font-bold text-on-surface hover:border-outline disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   +30분
                 </button>
@@ -303,7 +362,7 @@ function CircularTimePicker({
         <div className="mt-md rounded-xl bg-on-secondary-fixed p-md text-secondary-fixed">
           <p className="text-label-sm text-secondary-fixed-dim">선택한 상차 시간</p>
           <p className="mt-xs text-headline-sm font-black text-primary-fixed">
-            {minutesToTime(start)} ~ {minutesToTime(end)}
+            {formatLoadingTimeWindow(start, end)}
           </p>
         </div>
       </div>
@@ -379,7 +438,7 @@ function RouteSummary({ form }: { form: CallForm }) {
     ['차량', getSelectedVehicle(form)],
     ['품목', getSelectedCargo(form)],
     ['상차 날짜', form.loadingDate ? formatDate(form.loadingDate) : ''],
-    ['상차 시간', `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`],
+    ['상차 시간', formatLoadingTimeWindow(form.loadingStartMinutes, form.loadingEndMinutes)],
   ]
 
   return (
@@ -405,10 +464,11 @@ function RouteSummary({ form }: { form: CallForm }) {
   )
 }
 
-function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onContinue }: CallRegistrationProps) {
+function CallRegistration({ form, modelMetadata, preferencesSaved, schedulePreference, onChange, onContinue }: CallRegistrationProps) {
   const completion = callFieldCompletion(form)
   const canContinue = completion === 6
   const update = <K extends keyof CallForm>(key: K, value: CallForm[K]) => onChange({ ...form, [key]: value })
+  const allowedScheduleWindow = getRestrictedScheduleWindow(schedulePreference)
 
   return (
     <section className="space-y-lg" aria-labelledby="register-call-title">
@@ -505,7 +565,12 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
       </div>
 
       <div className="rounded-2xl border border-outline-variant bg-white p-xl">
-        <StepHeading number="03" title="상차 날짜와 시간" description="달력에서 날짜를 고르고 24시간 시계에서 상차 가능 시간창을 설정하세요." icon="schedule" />
+        <StepHeading
+          number="03"
+          title="상차 날짜와 시간"
+          description={allowedScheduleWindow ? `${allowedScheduleWindow.label}로 선택한 범위 안에서 상차 시간창을 설정하세요.` : '달력에서 날짜를 고르고 24시간 시계에서 상차 가능 시간창을 설정하세요.'}
+          icon="schedule"
+        />
         <div className="mt-lg grid grid-cols-[360px_minmax(0,1fr)] gap-xl">
           <div>
             <p className="mb-md text-label-md font-bold text-on-surface">상차 날짜</p>
@@ -516,6 +581,7 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
             <CircularTimePicker
               start={form.loadingStartMinutes}
               end={form.loadingEndMinutes}
+              allowedWindow={allowedScheduleWindow}
               onChange={(loadingStartMinutes, loadingEndMinutes) => onChange({ ...form, loadingStartMinutes, loadingEndMinutes })}
             />
           </div>
