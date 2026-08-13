@@ -8,6 +8,8 @@ import {
   getScenario,
   getSelectedLocation,
   시나리오_facts,
+  차종대체계산출처,
+  차종대체효과적용,
 } from './shipperModel'
 import type { CallForm, ComparisonOptions, DispatchDecision, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
@@ -51,11 +53,12 @@ function AiInsightNote({ decision, facts }: { decision: DispatchDecision; facts:
 
 function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
   const current = getCurrentScenario(form, scenarios)
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '출발지 미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '도착지 미입력'}`
 
   const summary = decision === 'adjusted'
-    ? `${route} 콜은 상차 시간창을 ${formatWindow(current.windowMinutes)}에서 ${formatWindow(adjusted.windowMinutes)}까지 열어 등록했습니다.${options.allowDateDelay ? ' 상차일 하루 연기를 포함한 조정안입니다.' : ''} 연결된 원본에서는 수락 가능 차주가 ${current.availableDrivers}명에서 ${adjusted.availableDrivers}명으로 변합니다. 예상 운임은 ${formatShortCurrency(current.estimatedFare)}에서 ${formatShortCurrency(adjusted.estimatedFare)}까지 낮아집니다. 차종 대체 조건은 원본 축이 없어 수치에서 제외했습니다.`
+    ? `${route} 콜은 상차 시간창을 ${formatWindow(current.windowMinutes)}에서 ${formatWindow(adjusted.windowMinutes)}까지 열어 등록했습니다.${options.allowDateDelay ? ' 상차일 하루 연기를 포함한 조정안입니다.' : ''}${options.allowVehicleSubstitution ? ' 동일 톤급 호환 차종까지 후보군을 확장한 계산을 포함합니다.' : ''} 조정안의 수락 가능 차주는 ${current.availableDrivers}명에서 ${adjusted.availableDrivers}명으로 변하고, 예상 운임은 ${formatShortCurrency(current.estimatedFare)}에서 ${formatShortCurrency(adjusted.estimatedFare)}으로 변합니다.`
     : decision === 'current'
       ? `${route} 콜은 입력한 조건을 그대로 유지했습니다. 조건을 바꾸지 않아도 불이익은 없으며, 이번 선택은 다음 제안의 판단 근거로 기록됩니다. 현재 원본 조합의 예상 수락 가능 차주는 ${current.availableDrivers}명, 예상 운임은 ${formatShortCurrency(current.estimatedFare)}입니다.`
       : '조건 비교에서 진행 방식을 선택하면 이번 배차 조건의 의미와 예상 결과를 화주/주선사용 문장으로 정리합니다.'
@@ -67,9 +70,9 @@ function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
       결정: decisionLabel(decision),
       노선: route,
       현재조건: 시나리오_facts(current),
-      ...(decision === 'adjusted' ? { 조정안: 시나리오_facts(adjusted), 상차일_연기_포함: options.allowDateDelay } : {}),
+      ...(decision === 'adjusted' ? { 조정안: 시나리오_facts(adjusted), 상차일_연기_포함: options.allowDateDelay, 차종_대체_허용: options.allowVehicleSubstitution } : {}),
     }
-  }, [decision, route, current, adjusted, options.allowDateDelay])
+  }, [decision, route, current, adjusted, options.allowDateDelay, options.allowVehicleSubstitution])
 
   return (
     <div className="rounded-2xl bg-on-secondary-fixed p-xl text-secondary-fixed">
@@ -101,7 +104,8 @@ function StatCard({ label, value, helper, accent }: { label: string; value: stri
 
 function ReportContent({ form, scenarios, modelMetadata, options, decision, compact = false }: ShipperReportProps & { compact?: boolean }) {
   const current = getCurrentScenario(form, scenarios)
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
   const chosen = decision === 'adjusted' ? adjusted : current
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미입력'}`
 
@@ -221,7 +225,7 @@ function ReportPrintDialog({ onClose, ...props }: ShipperReportProps & { onClose
         <ReportContent {...props} compact />
         <div className="mt-lg rounded-xl border border-outline-variant bg-white p-md">
           <p className="text-label-sm font-black text-on-surface">조정 결과의 근거</p>
-          <p className="mt-xs text-label-sm leading-5 text-secondary">톤급×시간창 원본 시나리오, 사용자 선호 조건, 콜 입력값, 최근 운영 기록을 사용했습니다. 노선·품목·차종 대체별 계수가 없는 항목은 수치 계산에서 제외했습니다.</p>
+          <p className="mt-xs text-label-sm leading-5 text-secondary">톤급×시간창 원본 시나리오, 사용자 선호 조건, 콜 입력값, 최근 운영 기록을 사용했습니다.{props.options.allowVehicleSubstitution ? ` 차종 대체 효과는 ${차종대체계산출처}로 계산했습니다.` : ''}</p>
         </div>
       </section>
     </div>

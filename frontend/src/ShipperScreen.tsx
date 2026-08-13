@@ -257,6 +257,11 @@ function ShipperScreen() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const returnToMain = () => {
+    setActiveTab('settings')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
     <div className="shipper-app min-h-screen min-w-[1400px] bg-background text-on-surface">
       <nav className="fixed top-0 z-50 flex h-16 w-full min-w-[1400px] items-center justify-between border-b border-outline-variant bg-surface px-8" aria-label="역할 선택">
@@ -316,7 +321,14 @@ function ShipperScreen() {
               )}
               {activeTab === 'report' && <ShipperReport form={callForm} scenarios={scenarios} modelMetadata={modelMetadata} options={comparisonOptions} decision={decision} />}
               {activeTab === 'profile' && (
-                <ShipperProfile selections={selections} form={callForm} modelMetadata={modelMetadata} decision={decision} onEditPreferences={() => setActiveTab('settings')} />
+                <ShipperProfile
+                  selections={selections}
+                  form={callForm}
+                  modelMetadata={modelMetadata}
+                  decision={decision}
+                  onBackToMain={returnToMain}
+                  onEditPreferences={() => setActiveTab('settings')}
+                />
               )}
             </div>
             <DecisionSummary selections={selections} answeredCount={answeredCount} form={callForm} decision={decision} options={comparisonOptions} />

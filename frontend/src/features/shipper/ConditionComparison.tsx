@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useInsight } from '../../lib/useInsight'
 import { windowOptions } from './shipperData'
 import {
@@ -15,6 +15,8 @@ import {
   minutesToTime,
   timeWindowDuration,
   시나리오_facts,
+  차종대체계산출처,
+  차종대체효과적용,
   유찰퍼센트,
 } from './shipperModel'
 import type { CallForm, ComparisonOptions, DispatchDecision, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
@@ -132,20 +134,20 @@ function ToggleRow({
   description,
   checked,
   onChange,
-  unavailable,
+  detail,
 }: {
   label: string
   description: string
   checked: boolean
   onChange: (checked: boolean) => void
-  unavailable?: boolean
+  detail?: ReactNode
 }) {
   return (
     <div className="flex items-center justify-between gap-lg rounded-xl border border-outline-variant bg-white p-md">
       <div>
         <p className="text-label-md font-bold text-on-surface">{label}</p>
         <p className="mt-xs text-label-sm text-secondary">{description}</p>
-        {unavailable && <p className="mt-xs text-label-sm font-bold text-error">원본 데이터에 해당 계수가 없어 예측 수치에는 반영하지 않습니다.</p>}
+        {detail}
       </div>
       <button
         type="button"
@@ -161,8 +163,26 @@ function ToggleRow({
   )
 }
 
+function VehicleSubstitutionEffect({ base, adjusted, active }: { base: ScenarioResult; adjusted: ScenarioResult; active: boolean }) {
+  if (!active) return null
+
+  return (
+    <div className="mt-sm rounded-lg bg-[#fff9cc] p-sm text-label-sm leading-5 text-on-surface" role="status">
+      <strong className="block">차종 대체 반영값</strong>
+      <span className="mt-xs block">차주 {base.availableDrivers}→{adjusted.availableDrivers}명 · 운임 {formatShortCurrency(base.estimatedFare)}→{formatShortCurrency(adjusted.estimatedFare)}</span>
+      <span className="block">배차 {Math.round(base.dispatchMinutes)}→{Math.round(adjusted.dispatchMinutes)}분 · 유찰 {유찰퍼센트(base.failureProbability)}→{유찰퍼센트(adjusted.failureProbability)}%</span>
+      <small className="mt-xs block text-secondary">동일 톤급 호환 차종 확대 계산 · {차종대체계산출처}</small>
+    </div>
+  )
+}
+
 function DeltaBars({ current, adjusted }: { current: ScenarioResult; adjusted: ScenarioResult }) {
-  const minuteDelta = Math.round(Math.abs(adjusted.dispatchMinutes - current.dispatchMinutes) * 10) / 10
+  const currentDispatch = Math.round(current.dispatchMinutes)
+  const adjustedDispatch = Math.round(adjusted.dispatchMinutes)
+  const minuteDelta = Math.abs(adjustedDispatch - currentDispatch)
+  const currentFailure = 유찰퍼센트(current.failureProbability)
+  const adjustedFailure = 유찰퍼센트(adjusted.failureProbability)
+  const failureDelta = Number(Math.abs(adjustedFailure - currentFailure).toFixed(1))
   const changes = [
     {
       label: '차주 변화',
@@ -184,21 +204,21 @@ function DeltaBars({ current, adjusted }: { current: ScenarioResult; adjusted: S
     },
     {
       label: '배차시간 변화',
-      current: current.dispatchMinutes,
-      adjusted: adjusted.dispatchMinutes,
-      currentText: `${current.dispatchMinutes}분`,
-      adjustedText: `${adjusted.dispatchMinutes}분`,
-      delta: `${adjusted.dispatchMinutes <= current.dispatchMinutes ? '-' : '+'}${minuteDelta}분`,
-      better: adjusted.dispatchMinutes <= current.dispatchMinutes,
+      current: currentDispatch,
+      adjusted: adjustedDispatch,
+      currentText: `${currentDispatch}분`,
+      adjustedText: `${adjustedDispatch}분`,
+      delta: `${adjustedDispatch <= currentDispatch ? '-' : '+'}${minuteDelta}분`,
+      better: adjustedDispatch <= currentDispatch,
     },
     {
       label: '유찰 확률',
-      current: Math.round(current.failureProbability * 100),
-      adjusted: Math.round(adjusted.failureProbability * 100),
-      currentText: `${Math.round(current.failureProbability * 100)}%`,
-      adjustedText: `${Math.round(adjusted.failureProbability * 100)}%`,
-      delta: `${adjusted.failureProbability <= current.failureProbability ? '-' : '+'}${Math.abs(Math.round((adjusted.failureProbability - current.failureProbability) * 100))}%p`,
-      better: adjusted.failureProbability <= current.failureProbability,
+      current: currentFailure,
+      adjusted: adjustedFailure,
+      currentText: `${currentFailure}%`,
+      adjustedText: `${adjustedFailure}%`,
+      delta: `${adjustedFailure <= currentFailure ? '-' : '+'}${failureDelta}%p`,
+      better: adjustedFailure <= currentFailure,
     },
   ]
 
@@ -250,9 +270,10 @@ function DecisionDialog({
   onClose: () => void
   onDecision: (decision: Exclude<DispatchDecision, null>) => void
 }) {
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
-  const noChange = current.windowMinutes === adjusted.windowMinutes
-  const minuteDelta = Math.round(Math.abs(adjusted.dispatchMinutes - current.dispatchMinutes) * 10) / 10
+  const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
+  const noChange = current.windowMinutes === baseAdjusted.windowMinutes && !options.allowVehicleSubstitution
+  const minuteDelta = Math.abs(Math.round(adjusted.dispatchMinutes) - Math.round(current.dispatchMinutes))
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-xl animate-[mv-backdrop-in_180ms_ease-out] motion-reduce:animate-none" role="presentation">
@@ -295,10 +316,10 @@ function DecisionDialog({
 
             <ToggleRow
               label="차종 대체 허용"
-              description="선택 상태는 등록 조건에 기록됩니다."
+              description="동일 톤급 호환 차종까지 후보군을 넓혀 조정안 수치를 다시 계산합니다."
               checked={options.allowVehicleSubstitution}
-              unavailable
               onChange={(allowVehicleSubstitution) => onOptionsChange({ ...options, allowVehicleSubstitution })}
+              detail={<VehicleSubstitutionEffect base={baseAdjusted} adjusted={adjusted} active={options.allowVehicleSubstitution} />}
             />
             <ToggleRow
               label="상차일 하루 연기"
@@ -316,7 +337,7 @@ function DecisionDialog({
                 <div className="mt-lg grid grid-cols-3 gap-sm">
                   <div><p className="text-label-sm text-secondary">차주</p><strong className="text-headline-md">{current.availableDrivers}명</strong></div>
                   <div><p className="text-label-sm text-secondary">운임</p><strong className="text-headline-md">{formatShortCurrency(current.estimatedFare)}</strong></div>
-                  <div><p className="text-label-sm text-secondary">배차</p><strong className="text-headline-md">{current.dispatchMinutes}분</strong></div>
+                  <div><p className="text-label-sm text-secondary">배차</p><strong className="text-headline-md">{Math.round(current.dispatchMinutes)}분</strong></div>
                 </div>
               </div>
               <div className="rounded-2xl border-2 border-primary bg-[#fffdf0] p-lg">
@@ -325,7 +346,7 @@ function DecisionDialog({
                 <div className="mt-lg grid grid-cols-3 gap-sm">
                   <div><p className="text-label-sm text-secondary">차주</p><strong className="text-headline-md">{adjusted.availableDrivers}명</strong></div>
                   <div><p className="text-label-sm text-secondary">운임</p><strong className="text-headline-md">{formatShortCurrency(adjusted.estimatedFare)}</strong></div>
-                  <div><p className="text-label-sm text-secondary">배차</p><strong className="text-headline-md">{adjusted.dispatchMinutes}분</strong></div>
+                  <div><p className="text-label-sm text-secondary">배차</p><strong className="text-headline-md">{Math.round(adjusted.dispatchMinutes)}분</strong></div>
                 </div>
               </div>
             </div>
@@ -359,7 +380,7 @@ function DecisionDialog({
         */}
         <div className="mt-lg flex flex-wrap items-center justify-between gap-lg border-t border-outline-variant pt-lg">
           <p className="min-w-[18rem] max-w-xl flex-1 text-label-sm text-secondary">
-            근거: 톤급×시간창 시나리오 {modelMetadata.scenarioRows}행 · 모델 표본 {modelMetadata.trainingRows.toLocaleString('ko-KR')}행 · 차종 대체는 원본 축 부재로 수치 제외
+            근거: 톤급×시간창 시나리오 {modelMetadata.scenarioRows}행 · 모델 표본 {modelMetadata.trainingRows.toLocaleString('ko-KR')}행{options.allowVehicleSubstitution ? ` · 차종 대체 ${차종대체계산출처}` : ''}
           </p>
           <div className="grid w-full max-w-[520px] shrink-0 grid-cols-2 gap-sm">
             <button type="button" onClick={() => onDecision('current')} className="min-h-12 rounded-full border border-outline bg-white px-lg text-label-md font-black text-on-surface hover:bg-surface-container-low">현재 조건대로 진행</button>
@@ -422,7 +443,8 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
   const current = getCurrentScenario(form, scenarios)
   const selectedDuration = timeWindowDuration(form.loadingStartMinutes, form.loadingEndMinutes)
   const exactWindowMatch = windowOptions.includes(selectedDuration as ScenarioResult['windowMinutes'])
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
+  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미선택'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미선택'}`
   const interpretation = useMemo(() => {
     const preference = current.failureProbability >= 0.3 ? '현재 시간창은 유찰 위험이 높은 편입니다.' : '현재 시간창은 유찰 위험이 비교적 낮습니다.'
@@ -494,8 +516,6 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
               ['품목', getSelectedCargo(form) || '미선택'],
               ['상차 날짜', formatDate(form.loadingDate)],
               ['상차 시간', `${minutesToTime(form.loadingStartMinutes)}~${minutesToTime(form.loadingEndMinutes)}`],
-              ['별도 톨비', '원본 데이터 없음'],
-              ['운임 범위', '원본 데이터 없음'],
               ['원본 표본', `${current.tonnage}t × ${current.windowMinutes}분 · 학습 ${modelMetadata.trainingRows.toLocaleString('ko-KR')}행`],
             ].map(([label, value]) => (
               <div key={label}>
@@ -514,10 +534,10 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
         <div className="space-y-md">
           <ToggleRow
             label="차종 대체 허용"
-            description="등록 조건에는 저장되지만 현재 모델에는 별도 축이 없습니다."
+            description="동일 톤급 호환 차종까지 후보군을 넓혀 조정안 수치를 다시 계산합니다."
             checked={options.allowVehicleSubstitution}
-            unavailable
             onChange={(allowVehicleSubstitution) => onOptionsChange({ ...options, allowVehicleSubstitution })}
+            detail={<VehicleSubstitutionEffect base={baseAdjusted} adjusted={adjusted} active={options.allowVehicleSubstitution} />}
           />
           <ToggleRow
             label="상차일 하루 연기"
@@ -531,7 +551,7 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
       <div className="flex items-center justify-between gap-lg rounded-2xl bg-on-secondary-fixed p-lg text-secondary-fixed">
         <div>
           <p className="text-label-md font-black text-primary-fixed">현재 조건과 완화 조건만 비교합니다.</p>
-          <p className="mt-xs text-body-md text-secondary-fixed-dim">현재 {formatWindow(current.windowMinutes)} → 조정안 {formatWindow(adjusted.windowMinutes)} · 임의 보간 없이 원본 행 조회</p>
+          <p className="mt-xs text-body-md text-secondary-fixed-dim">현재 {formatWindow(current.windowMinutes)} → 조정안 {formatWindow(adjusted.windowMinutes)} · 임의 보간 없이 원본 행 조회{options.allowVehicleSubstitution ? ' · 차종 대체 계산 포함' : ''}</p>
         </div>
         <button type="button" onClick={() => setDialogOpen(true)} className="inline-flex min-h-12 items-center justify-center gap-sm rounded-full bg-primary-container px-xl text-label-md font-black text-on-primary-fixed hover:bg-primary-fixed">
           진행 조건 선택하기

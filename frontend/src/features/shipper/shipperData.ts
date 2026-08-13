@@ -84,7 +84,7 @@ export const shipperReportMetrics = {
 export const operationLogs: OperationLog[] = [
   { date: '08.12', title: '인천 서구 → 경북 구미', detail: '상차 시간창 2시간 완화 · 34분 내 배차', status: '완료' },
   { date: '08.09', title: '경기 화성 → 충북 청주', detail: '현재 조건 유지 · 운송인 1차 응답 수락', status: '완료' },
-  { date: '08.05', title: '부산 강서 → 전남 광양', detail: '차종 대체 데이터 미반영 · 원 조건 분석', status: '분석' },
+  { date: '08.05', title: '부산 강서 → 전남 광양', detail: '차종 대체 허용 · 계산 규칙 반영', status: '분석' },
 ]
 
 export const windowOptions: ScenarioResult['windowMinutes'][] = [40, 120, 240, 480, 1440]

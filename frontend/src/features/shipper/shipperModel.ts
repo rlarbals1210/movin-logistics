@@ -93,6 +93,27 @@ export function getNextRelaxedWindow(current: ScenarioResult['windowMinutes']) {
   return windowOptions[Math.min(index + 1, windowOptions.length - 1)]
 }
 
+/**
+ * 차종 대체 효과를 조정안에 합성하는 결정론적 데모 규칙.
+ *
+ * 현재 원본은 톤급×시간창 축만 제공하므로 차종 대체를 모델 출력으로 가장하지
+ * 않는다. 동일 톤급의 호환 차종까지 공급 풀을 넓힌다는 가정으로 후보군을 20%
+ * 늘리고, 확대된 경쟁 효과를 운임·배차시간·유찰 확률에 각각 반영한다.
+ */
+export const 차종대체계산출처 = 'deterministicRules:vehicle-substitution-v1'
+
+export function 차종대체효과적용(scenario: ScenarioResult, enabled: boolean): ScenarioResult {
+  if (!enabled) return scenario
+
+  return {
+    ...scenario,
+    availableDrivers: Math.max(scenario.availableDrivers + 1, Math.round(scenario.availableDrivers * 1.2)),
+    estimatedFare: Math.round((scenario.estimatedFare * 0.97) / 1000) * 1000,
+    dispatchMinutes: Math.max(5, Math.round(scenario.dispatchMinutes * 0.88)),
+    failureProbability: Number(Math.max(0.001, scenario.failureProbability * 0.8).toFixed(3)),
+  }
+}
+
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat('ko-KR').format(value)
 }

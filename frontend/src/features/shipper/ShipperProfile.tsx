@@ -8,6 +8,7 @@ type ShipperProfileProps = {
   form: CallForm
   modelMetadata: ShipperModelMetadata
   decision: DispatchDecision
+  onBackToMain: () => void
   onEditPreferences: () => void
 }
 
@@ -17,14 +18,26 @@ function SelectionValue({ values }: { values: string[] }) {
     : <span className="font-bold text-secondary">미선택</span>
 }
 
-function ShipperProfile({ selections, form, modelMetadata, decision, onEditPreferences }: ShipperProfileProps) {
+function ShipperProfile({ selections, form, modelMetadata, decision, onBackToMain, onEditPreferences }: ShipperProfileProps) {
   const recentRoute = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미입력'}`
 
   return (
     <section className="space-y-lg" aria-labelledby="profile-title">
       <div className="rounded-2xl border border-outline-variant bg-white p-xl">
-        <h1 id="profile-title" className="text-[32px] font-black leading-tight tracking-[-0.03em] text-on-surface">내 정보</h1>
-        <p className="mt-sm text-body-lg text-secondary">화주/주선사 기본정보와 분석에 사용된 데이터, 선호 조건, 최근 운영 기록을 관리합니다.</p>
+        <div className="flex items-start justify-between gap-lg">
+          <div>
+            <h1 id="profile-title" className="text-[32px] font-black leading-tight tracking-[-0.03em] text-on-surface">내 정보</h1>
+            <p className="mt-sm text-body-lg text-secondary">화주/주선사 기본정보와 분석에 사용된 데이터, 선호 조건, 최근 운영 기록을 관리합니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onBackToMain}
+            className="inline-flex min-h-11 shrink-0 items-center gap-sm rounded-full bg-on-secondary-fixed px-lg text-label-md font-black text-primary-fixed transition-colors hover:bg-inverse-surface"
+          >
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">home</span>
+            메인화면으로
+          </button>
+        </div>
         <div className="mt-xl grid grid-cols-2 gap-md">
           <div className="rounded-xl bg-surface-container-low p-lg">
             <p className="text-label-sm text-secondary">회사 정보</p>
