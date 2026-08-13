@@ -24,8 +24,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function get<T>(path: string): Promise<T> {
-  return request<T>(path)
+/** `init` 은 AbortController 용이다 — 화면이 언마운트되면 요청을 끊는다 */
+export function get<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(path, init)
 }
 
 export function post<T>(path: string, body: unknown): Promise<T> {

@@ -33,9 +33,47 @@ class ShipperMatchRequest(BaseModel):
     시간창_분_목록: list[int] | None = None
 
 
+class CarrierDecision(BaseModel):
+    """
+    운송인의 콜 선택·미선택 기록.
+
+    다른 엔드포인트와 같은 방침이다 — 검증을 느슨하게 두고 422 를 내지 않는다.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    콜ID: str | None = None
+    선택여부: bool | None = None
+    사유: str | None = None
+
+
+# 프로세스 메모리에만 쌓는다. 재시작하면 사라진다 — 해커톤 범위에서는 충분하다.
+_DECISIONS: list[dict[str, Any]] = []
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/v1/carrier/decisions")
+def record_decision(
+    req: CarrierDecision = Body(default_factory=CarrierDecision),
+) -> dict[str, Any]:
+    """
+    선택하지 않은 이유까지 받는다.
+
+    기획 기준에서 "선택하지 않는 것도 정당한 의사결정"이므로 미선택도 같은
+    엔드포인트로 기록한다. 자동 수락은 없다 — 이 API 는 사용자가 누른 뒤에만 불린다.
+    """
+    _DECISIONS.append(req.model_dump())
+    return {"기록됨": True, "누적": len(_DECISIONS)}
+
+
+@app.get("/v1/carrier/decisions")
+def list_decisions() -> dict[str, Any]:
+    """데모 중에 로그가 실제로 쌓였는지 눈으로 보려고 둔다"""
+    return {"목록": _DECISIONS, "누적": len(_DECISIONS)}
 
 
 @app.post("/v1/matches/shipper")
