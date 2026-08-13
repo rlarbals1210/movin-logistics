@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { cargoOptions, routeOptions, vehicleOptions } from './shipperData'
+import { cargoOptions, regionGroups, vehicleOptions } from './shipperData'
 import {
   callFieldCompletion,
   formatDate,
@@ -19,12 +19,12 @@ type CallRegistrationProps = {
   onContinue: () => void
 }
 
-type LocationSelectorProps = {
+type RegionSelectorProps = {
   label: string
-  value: string
-  options: readonly string[]
-  disabled?: boolean
-  onChange: (value: string) => void
+  region: string
+  detail: string
+  custom: string
+  onChange: (values: { region: string; detail: string; custom: string }) => void
 }
 
 const weekLabels = ['일', '월', '화', '수', '목', '금', '토']
@@ -36,34 +36,67 @@ function toDateKey(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function LocationSelector({ label, value, options, disabled = false, onChange }: LocationSelectorProps) {
+function RegionSelector({ label, region, detail, custom, onChange }: RegionSelectorProps) {
+  const selectedGroup = regionGroups.find((group) => group.name === region)
+  const regionNames = [...regionGroups.map((group) => group.name), '기타']
+
   return (
-    <fieldset className="min-w-0" disabled={disabled}>
+    <fieldset className="min-w-0">
       <legend className="text-label-md font-bold text-on-surface">{label}</legend>
       <div className="mt-md flex flex-wrap gap-sm">
-        {options.map((location) => {
-          const selected = value === location
+        {regionNames.map((name) => {
+          const selected = region === name
           return (
             <button
-              key={location}
+              key={name}
               type="button"
               aria-pressed={selected}
-              onClick={() => onChange(location)}
+              onClick={() => onChange({ region: name, detail: '', custom: '' })}
               className={`rounded-full border px-md py-sm text-label-md font-bold transition-colors ${
                 selected
                   ? 'border-on-secondary-fixed bg-on-secondary-fixed text-primary-fixed'
-                  : 'border-outline-variant bg-white text-on-surface hover:border-outline disabled:cursor-not-allowed disabled:opacity-40'
+                  : 'border-outline-variant bg-white text-on-surface hover:border-outline'
               }`}
             >
-              {location}
+              {name}
             </button>
           )
         })}
       </div>
-      {disabled && (
-        <p className="mt-md rounded-xl bg-surface-container-low px-md py-sm text-body-md text-secondary">
-          출발지를 먼저 선택하면 실제 노선의 도착지가 표시됩니다.
-        </p>
+
+      {selectedGroup && (
+        <div className="mt-md rounded-xl bg-surface-container-low p-md animate-[mv-panel-in_160ms_ease-out] motion-reduce:animate-none">
+          <p className="text-label-sm font-bold text-secondary">세부 위치</p>
+          <div className="mt-sm flex flex-wrap gap-sm">
+            {selectedGroup.locations.map((location) => (
+              <button
+                key={location}
+                type="button"
+                aria-pressed={detail === location}
+                onClick={() => onChange({ region, detail: location, custom: '' })}
+                className={`rounded-lg border px-md py-sm text-body-md font-bold transition-colors ${
+                  detail === location
+                    ? 'border-primary bg-[#fff9cc] text-on-surface'
+                    : 'border-outline-variant bg-white text-secondary hover:text-on-surface'
+                }`}
+              >
+                {location}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {region === '기타' && (
+        <label className="mt-md block animate-[mv-panel-in_160ms_ease-out] motion-reduce:animate-none">
+          <span className="text-label-sm font-bold text-secondary">직접 입력</span>
+          <input
+            value={custom}
+            onChange={(event) => onChange({ region, detail: '', custom: event.target.value })}
+            placeholder="예: 경기 안산시 단원구"
+            className="mt-sm h-12 w-full rounded-xl border border-outline-variant bg-white px-md text-body-md font-bold text-on-surface outline-none transition-colors placeholder:font-normal placeholder:text-secondary focus:border-primary"
+          />
+        </label>
       )}
     </fieldset>
   )
@@ -281,30 +314,44 @@ function CircularTimePicker({
 function OptionGrid({
   options,
   value,
+  custom,
+  customPlaceholder,
   onChange,
 }: {
   options: readonly string[]
   value: string
-  onChange: (value: string) => void
+  custom: string
+  customPlaceholder: string
+  onChange: (value: string, custom: string) => void
 }) {
   return (
-    <div className="grid grid-cols-3 gap-sm">
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          aria-pressed={value === option}
-          onClick={() => onChange(option)}
-          className={`min-h-12 rounded-xl border px-md py-sm text-left text-label-md font-bold transition-colors ${
-            value === option
-              ? 'border-primary bg-[#fff9cc] text-on-surface shadow-[inset_0_0_0_1px_#6a5f00]'
-              : 'border-outline-variant bg-white text-on-surface hover:border-outline'
-          }`}
-        >
-          {option}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-3 gap-sm">
+        {[...options, '기타'].map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={value === option}
+            onClick={() => onChange(option, '')}
+            className={`min-h-12 rounded-xl border px-md py-sm text-left text-label-md font-bold transition-colors ${
+              value === option
+                ? 'border-primary bg-[#fff9cc] text-on-surface shadow-[inset_0_0_0_1px_#6a5f00]'
+                : 'border-outline-variant bg-white text-on-surface hover:border-outline'
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      {value === '기타' && (
+        <input
+          value={custom}
+          onChange={(event) => onChange(value, event.target.value)}
+          placeholder={customPlaceholder}
+          className="mt-md h-12 w-full rounded-xl border border-outline-variant bg-white px-md text-body-md font-bold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary animate-[mv-panel-in_160ms_ease-out] motion-reduce:animate-none"
+        />
+      )}
+    </>
   )
 }
 
@@ -362,35 +409,6 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
   const completion = callFieldCompletion(form)
   const canContinue = completion === 6
   const update = <K extends keyof CallForm>(key: K, value: CallForm[K]) => onChange({ ...form, [key]: value })
-  const originOptions = useMemo(() => [...new Set(routeOptions.map((route) => route.origin))], [])
-  const destinationOptions = useMemo(() => (
-    [...new Set(routeOptions
-      .filter((route) => route.origin === form.originDetail)
-      .map((route) => route.destination))]
-  ), [form.originDetail])
-
-  const selectOrigin = (origin: string) => {
-    const allowedDestinations = new Set<string>(routeOptions
-      .filter((route) => route.origin === origin)
-      .map((route) => route.destination))
-    const keepDestination = allowedDestinations.has(form.destinationDetail)
-    onChange({
-      ...form,
-      originRegion: origin,
-      originDetail: origin,
-      originCustom: '',
-      destinationRegion: keepDestination ? form.destinationDetail : '',
-      destinationDetail: keepDestination ? form.destinationDetail : '',
-      destinationCustom: '',
-    })
-  }
-
-  const selectDestination = (destination: string) => onChange({
-    ...form,
-    destinationRegion: destination,
-    destinationDetail: destination,
-    destinationCustom: '',
-  })
 
   return (
     <section className="space-y-lg" aria-labelledby="register-call-title">
@@ -419,26 +437,27 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
       </div>
 
       <div className="rounded-2xl border border-outline-variant bg-white p-xl">
-        <StepHeading number="01" title="출발지와 도착지" description="원본 데이터에 있는 12개 노선에서만 선택할 수 있습니다." icon="route" />
+        <StepHeading number="01" title="출발지와 도착지" description="권역을 먼저 고른 뒤 세부 위치를 선택하세요." icon="route" />
         <div className="mt-lg grid grid-cols-2 gap-xl">
-          <LocationSelector
+          <RegionSelector
             label="출발지"
-            value={form.originDetail}
-            options={originOptions}
-            onChange={selectOrigin}
+            region={form.originRegion}
+            detail={form.originDetail}
+            custom={form.originCustom}
+            onChange={(values) => onChange({ ...form, originRegion: values.region, originDetail: values.detail, originCustom: values.custom })}
           />
-          <LocationSelector
+          <RegionSelector
             label="도착지"
-            value={form.destinationDetail}
-            options={destinationOptions}
-            disabled={!form.originDetail}
-            onChange={selectDestination}
+            region={form.destinationRegion}
+            detail={form.destinationDetail}
+            custom={form.destinationCustom}
+            onChange={(values) => onChange({ ...form, destinationRegion: values.region, destinationDetail: values.detail, destinationCustom: values.custom })}
           />
         </div>
       </div>
 
       <div className="rounded-2xl border border-outline-variant bg-white p-xl">
-        <StepHeading number="02" title="차량과 품목" description="원본 콜 등록 이력에 존재하는 차량과 품목만 표시합니다." icon="local_shipping" />
+        <StepHeading number="02" title="차량과 품목" description="실제 배차에 필요한 차량과 화물 성격을 선택하세요." icon="local_shipping" />
         <div className="mt-lg grid grid-cols-2 gap-xl">
           <fieldset>
             <legend className="text-label-md font-bold text-on-surface">차량</legend>
@@ -446,7 +465,9 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
               <OptionGrid
                 options={vehicleOptions}
                 value={form.vehicle}
-                onChange={(vehicle) => onChange({ ...form, vehicle, vehicleCustom: '' })}
+                custom={form.vehicleCustom}
+                customPlaceholder="예: 8톤 리프트 윙바디"
+                onChange={(vehicle, vehicleCustom) => onChange({ ...form, vehicle, vehicleCustom })}
               />
             </div>
           </fieldset>
@@ -456,7 +477,9 @@ function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onC
               <OptionGrid
                 options={cargoOptions}
                 value={form.cargoItem}
-                onChange={(cargoItem) => onChange({ ...form, cargoItem, cargoItemCustom: '' })}
+                custom={form.cargoItemCustom}
+                customPlaceholder="예: 의료기기"
+                onChange={(cargoItem, cargoItemCustom) => onChange({ ...form, cargoItem, cargoItemCustom })}
               />
             </div>
           </fieldset>
