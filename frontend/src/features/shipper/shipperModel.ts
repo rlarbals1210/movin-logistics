@@ -1,8 +1,17 @@
 import { scenarioResults, windowOptions } from './shipperData'
 import type { CallForm, ScenarioResult } from './shipperTypes'
 
+/**
+ * 분 → "HH:MM".
+ *
+ * 소수분을 먼저 반올림한다. 폼 입력은 정수지만 `예측_배차분` 은 모델 출력이라
+ * 37.67 같은 소수로 온다. 반올림 없이 `% 60` 을 하면 부동소수 잔차가 그대로
+ * 문자열이 되어 "12:55.67000000000007" 이 화면에 뜬다.
+ * (고정값 시절엔 배차분이 정수뿐이라 드러나지 않던 버그다)
+ */
 export function minutesToTime(minutes: number) {
-  const normalized = ((minutes % 1440) + 1440) % 1440
+  const rounded = Math.round(minutes)
+  const normalized = ((rounded % 1440) + 1440) % 1440
   const hours = Math.floor(normalized / 60)
   const mins = normalized % 60
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`

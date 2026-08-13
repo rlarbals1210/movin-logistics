@@ -52,14 +52,21 @@ const metricDefinitions: Array<{
     key: 'dispatch',
     label: '예상 배차시간',
     icon: 'timer',
-    value: (scenario) => `${scenario.dispatchMinutes}분`,
+    // 모델 출력이 37.67 같은 소수라 그대로 쓰면 "37.67분"이 된다. 분 단위 예측에
+    // 소수점 두 자리는 없는 정밀도를 있는 것처럼 보이게 한다.
+    value: (scenario) => `${Math.round(scenario.dispatchMinutes)}분`,
     helper: () => '콜 등록 후 예상',
   },
   {
     key: 'failure',
     label: '유찰 확률',
     icon: 'warning',
-    value: (scenario) => `${Math.round(scenario.failureProbability * 100)}%`,
+    // 정수로 반올림하면 1.15% 와 0.53% 가 둘 다 "1%" 가 되어 시간창별 차이가
+    // 화면에서 사라진다. 1% 미만 구간이 실제로 쓰이므로 소수 한 자리까지 보인다.
+    value: (scenario) => {
+      const 퍼센트 = scenario.failureProbability * 100
+      return `${퍼센트 < 10 ? 퍼센트.toFixed(1) : String(Math.round(퍼센트))}%`
+    },
     helper: () => '모델 추정 확률',
   },
 ]
