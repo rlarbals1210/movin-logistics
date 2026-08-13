@@ -10,19 +10,23 @@
    (`DEMO_CARRIER_CALLS`)에 **병합**한다. `복화가능성`은 predictions.json에
    아직 없다 — 모델이 이 값을 예측하지 않기 때문이다. 없으면 중립 추정치를
    채우고 "복화가능성 추정치" 태그로 화면에서 구분해 보여준다(`_예측콜로`).
-2. 후보 풀과 무관하게, 매 요청마다 Kakao 지오코딩·길찾기(`app/kakao.py`)로
-   `emptyDistanceKm`(공차거리)을 실측값으로 덮어쓴다. 운송인 데모의 핵심
-   메시지("표면 운임 1위가 시간당 실수령으로는 꼴찌")가 전적으로 이 값에서
-   나오는데, 이건 모델 예측이 아니라 지금 바로 계산 가능한 값이기 때문이다.
-   실패하면(키 없음·API 오류) 해당 콜은 기존 고정값을 그대로 쓴다.
+2. 후보 풀과 무관하게, 매 요청마다 기준점(선호 권역 또는 운행 중 현재 위치)
+   에서 각 콜 출발지까지의 거리로 `emptyDistanceKm`(공차거리)을 덮어쓴다.
+   운송인 데모의 핵심 메시지("표면 운임 1위가 시간당 실수령으로는 꼴찌")가
+   전적으로 이 값에서 나오는데, 이건 모델 예측이 아니라 지금 바로 계산
+   가능한 값이기 때문이다. 좌표를 모르는 라벨은 기존 고정값을 그대로 쓴다.
 
-`current_location`이 없는 첫 진입 요청(오더 게시판·TOP 3 비교 화면)은 이 실측
+   계산은 `app/geo.py`의 하드코딩 좌표표 + 하버사인이다 — 네트워크를 타지
+   않는다. 예전에는 매 요청 Kakao 길찾기를 26회 순차 호출해서 응답이 24~71초
+   걸렸고, 프론트 타임아웃(15초)에 걸려 배포 화면이 폴백으로 떨어졌다.
+
+`current_location`이 없는 첫 진입 요청(오더 게시판·TOP 3 비교 화면)은 이 공차거리
 재계산이 끝난 뒤 시간당 실수령(`estimatedNetIncomeWon ÷ durationMinutes`)
 내림차순으로 정렬한다 — "표면 운임 1위가 실제로는 꼴찌"라는 메시지가 화면
 순서(무엇이 1순위 추천으로 뜨는지)에도 실제로 반영되게 하기 위해서다. 이전에는
 정렬 없이 배열 등장 순서를 그대로 썼다.
 
-거리를 실측으로 덮으면 그 거리에 물린 비용(`emptyCostWon`·
+공차거리를 기준점 기준으로 덮으면 그 거리에 물린 비용(`emptyCostWon`·
 `estimatedNetIncomeWon`)도 같이 재계산해야 앞뒤가 맞는다 — 안 그러면 "옛
 공차거리로 계산한 비용"이 "새 공차거리"와 나란히 뜬다. `_비용재계산()`이 이
 둘을 갱신한다. 사용하는 상수(유가 1,503원/L · 5톤 연비)는 이 시드 데이터가
@@ -38,7 +42,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from app.kakao import driving_distance_km, geocode
+from app.geo import coords, road_distance_km
 
 PREDICTION_SOURCES = {
     "model": None,
@@ -549,8 +553,8 @@ def _예측콜로(행: dict[str, Any], index: int) -> dict[str, Any]:
         # predictions.json에 상차 시각이 없다 — 등록 순서로 30분 간격을 두어 임시 배치한다.
         "pickupAt": f"2026-08-13T{12 + index // 2:02d}:{(index % 2) * 30:02d}:00+09:00",
         "loadedDistanceKm": 적재km,
-        # carrier_matches()가 매 요청마다 Kakao 실측값으로 덮는다. 실패하면 0 그대로 노출된다 —
-        # 임의 추정치를 넣는 것보다 "0km"가 눈에 띄어서 낫다.
+        # carrier_matches()가 매 요청마다 기준점 기준 거리로 덮는다. 좌표표에 라벨이
+        # 없으면 0 그대로 노출된다 — 임의 추정치를 넣는 것보다 "0km"가 눈에 띄어서 낫다.
         "emptyDistanceKm": 0.0,
         "durationMinutes": 소요분,
         "fareWon": 운임,
@@ -598,7 +602,7 @@ if _REAL_CALLS:
 
 
 def _비용재계산(call: dict[str, Any], 공차km: float) -> dict[str, Any]:
-    """emptyDistanceKm을 실측값으로 바꿀 때 관련 필드를 같이 갱신한다.
+    """emptyDistanceKm을 기준점 기준 값으로 바꿀 때 관련 필드를 같이 갱신한다.
 
     안 그러면 "옛 공차거리로 계산한 비용"이 "새 공차거리"와 나란히 뜬다.
     """
@@ -621,19 +625,31 @@ def _비용재계산(call: dict[str, Any], 공차km: float) -> dict[str, Any]:
     }
 
 
-def _실측_공차거리_적용(calls: list[dict[str, Any]], reference_location: str | None) -> list[dict[str, Any]]:
-    """기준 위치(현재 위치 또는 선호 권역) → 각 콜 출발지의 실도로거리로 emptyDistanceKm을 덮는다.
+def _지점좌표(지점: dict[str, Any]) -> tuple[float, float] | None:
+    """콜의 출발지/도착지 좌표. 시드에 박힌 값을 우선하고, 없으면 라벨로 표를 찾는다.
 
-    지오코딩·길찾기가 실패하면(키 없음·API 오류) 해당 콜은 원래 값 그대로 남는다 —
-    콜 단위 폴백이라 하나가 실패해도 나머지 화면은 정상이다.
+    DEMO_CARRIER_CALLS 23건은 좌표를 이미 갖고 있어서 그대로 쓰고, predictions.json
+    에서 온 콜만 표를 탄다(`_예측콜로`가 lat/lng을 None으로 두기 때문이다).
     """
-    reference_coord = geocode(reference_location) if reference_location else None
+    lat, lng = 지점.get("lat"), 지점.get("lng")
+    if isinstance(lat, (int, float)) and isinstance(lng, (int, float)):
+        return (float(lat), float(lng))
+    return coords(지점.get("label"))
+
+
+def _기준점_공차거리_적용(calls: list[dict[str, Any]], reference_location: str | None) -> list[dict[str, Any]]:
+    """기준 위치(현재 위치 또는 선호 권역) → 각 콜 출발지의 거리로 emptyDistanceKm을 덮는다.
+
+    좌표표(`app/geo.py`)에 없는 라벨은 해당 콜이 원래 값 그대로 남는다 — 콜 단위
+    폴백이라 하나가 빠져도 나머지 화면은 정상이다.
+    """
+    reference_coord = coords(reference_location) if reference_location else None
 
     updated: list[dict[str, Any]] = []
     for call in calls:
         next_call = call
-        origin_coord = geocode(call["origin"]["label"])
-        dest_coord = geocode(call["destination"]["label"])
+        origin_coord = _지점좌표(call["origin"])
+        dest_coord = _지점좌표(call["destination"])
 
         if origin_coord is not None:
             next_call = {**next_call, "origin": {**next_call["origin"], "lat": origin_coord[0], "lng": origin_coord[1]}}
@@ -641,9 +657,7 @@ def _실측_공차거리_적용(calls: list[dict[str, Any]], reference_location:
             next_call = {**next_call, "destination": {**next_call["destination"], "lat": dest_coord[0], "lng": dest_coord[1]}}
 
         if reference_coord is not None and origin_coord is not None:
-            공차km = driving_distance_km(reference_coord, origin_coord)
-            if 공차km is not None:
-                next_call = _비용재계산(next_call, 공차km)
+            next_call = _비용재계산(next_call, road_distance_km(reference_coord, origin_coord))
 
         updated.append(next_call)
     return updated
@@ -664,13 +678,13 @@ def carrier_matches(
     """현재 위치와 제외 목록을 반영해 결정론적으로 반환한다.
 
     `current_location`이 없으면(첫 진입 · 오더 게시판 · TOP 3 비교) 제외 목록만
-    걸러 전체를 반환하되, 실측 재계산이 끝난 시간당 실수령 내림차순으로 정렬한다
+    걸러 전체를 반환하되, 공차거리 재계산이 끝난 시간당 실수령 내림차순으로 정렬한다
     — index 0(=`recommended`)이 "표면 운임이 아니라 실제로 가장 남는 콜"이 되게
     하기 위해서다. `current_location`이 있으면(운행 중 후속 콜 탐색) 가까운 순
     최대 3건만 반환한다 — 이 경로는 "다음으로 이어 갈 콜"이 목적이라 수익성이
     아니라 물리적 거리로 정렬한다.
 
-    `reference_location`은 공차거리 실측 계산의 기준점이다. 보통 `current_location`과
+    `reference_location`은 공차거리 계산의 기준점이다. 보통 `current_location`과
     같지만, 아직 운행 전이라 현재 위치가 없는 첫 진입에서는 선호 권역으로 대신한다
     (main.py가 결정해서 넘긴다 — 여기는 순수하게 받은 값만 쓴다).
     """
@@ -680,7 +694,7 @@ def carrier_matches(
         for call in base_calls
         if call["callId"] not in exclude_call_ids and route_key(call) not in exclude_route_keys
     ]
-    candidates = _실측_공차거리_적용(candidates, reference_location or current_location)
+    candidates = _기준점_공차거리_적용(candidates, reference_location or current_location)
 
     if current_location:
         exact = [call for call in candidates if call["origin"]["label"] == current_location]
