@@ -120,7 +120,7 @@ function geocode(sdk: KakaoSdk, address: string): Promise<지도좌표> {
 
 function FallbackMap({ reason }: { reason: string }) {
   return (
-    <div className="carrier-route-map is-fallback" role="img" aria-label="지도 대체 경로 도식">
+    <div className="carrier-route-map is-fallback carrier-fade-in" role="img" aria-label="지도 대체 경로 도식">
       <svg viewBox="0 0 340 230">
         <path className="street major" d="M-20 185C45 160 72 177 118 135S230 72 360 42" />
         <path className="street" d="M14 30C82 72 108 98 164 104s103-35 178-10M5 118c80-20 124 12 171 42s98 19 165 2" />
@@ -215,9 +215,9 @@ export function KakaoRouteMap({ call, progress }: { call: 추천콜상세; progr
   }
 
   return (
-    <div className="carrier-route-map kakao-map-wrap" aria-label="Kakao 지도 운행 경로">
+    <div className="carrier-route-map kakao-map-wrap carrier-fade-in" aria-label="Kakao 지도 운행 경로">
       <div ref={containerRef} className="kakao-map-canvas" />
-      {status === 'loading' && <div className="carrier-map-loading" role="status">Kakao 지도를 불러오는 중…</div>}
+      {status === 'loading' && <div className="carrier-map-loading carrier-fade-in" role="status">Kakao 지도를 불러오는 중…</div>}
     </div>
   )
 }

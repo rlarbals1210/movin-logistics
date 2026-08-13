@@ -68,9 +68,14 @@
   animation: carrier-step-in var(--motion-base) var(--motion-ease-out);
 }
 
+.carrier-fade-in {
+  animation: carrier-fade-in 140ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mv-spin,
-  .carrier-step-in {
+  .carrier-step-in,
+  .carrier-fade-in {
     animation: none;
   }
 }
