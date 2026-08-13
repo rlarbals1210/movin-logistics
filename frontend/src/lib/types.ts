@@ -29,8 +29,6 @@ export interface 화주시나리오 {
 /** 운송인 화면: 추천 콜 한 건 */
 export interface 운송인추천콜 {
   콜ID: string
-  /** 콜이 요구하는 차량 톤급 */
-  톤급: 톤급
   출발지: string
   도착지: string
   거리km: number

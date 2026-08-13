@@ -36,37 +36,7 @@ function 폴백목록(매칭쿼리: string): 추천콜상세[] {
   const currentLocation = params.get('currentLocation') ?? undefined
   const excludedIds = new Set(params.getAll('excludeCallIds'))
   const excludedRoutes = new Set(params.getAll('excludeRouteKeys'))
-  const tonnage = Number(params.get('tonnage') ?? 5)
-  const subregion = params.get('subregion') ?? ''
-  const timeSlots = new Set(params.getAll('timeSlots'))
-  const maxEmptyRaw = params.get('maxEmptyKm')
-  const maxDurationRaw = params.get('maxDurationHours')
-  const maxEmptyKm = maxEmptyRaw === null ? undefined : Number(maxEmptyRaw)
-  const maxDurationHours = maxDurationRaw === null ? undefined : Number(maxDurationRaw)
-  const prioritizeIncome = params.get('prioritizeIncome') === 'true'
-  const prioritizeBackhaul = params.get('prioritizeBackhaul') === 'true'
-  const timeCode = (iso: string) => {
-    const hour = Number(iso.slice(11, 13))
-    if (hour >= 6 && hour < 12) return 'MORNING'
-    if (hour >= 12 && hour < 18) return 'AFTERNOON'
-    return 'NIGHT'
-  }
-
-  return 데모콜변환(currentLocation)
-    .filter((call) => (
-      !excludedIds.has(call.콜ID) &&
-      !excludedRoutes.has(노선키(call)) &&
-      call.톤급 === tonnage &&
-      (!subregion || call.출발지.includes(subregion)) &&
-      (timeSlots.size === 0 || timeSlots.has(timeCode(call.상차ISO))) &&
-      (maxEmptyKm === undefined || !Number.isFinite(maxEmptyKm) || call.공차거리km <= maxEmptyKm) &&
-      (maxDurationHours === undefined || !Number.isFinite(maxDurationHours) || call.운행시간분 <= maxDurationHours * 60)
-    ))
-    .sort((a, b) => {
-      if (prioritizeIncome && a.예상실수령원 !== b.예상실수령원) return b.예상실수령원 - a.예상실수령원
-      if (prioritizeBackhaul && a.복화가능성 !== b.복화가능성) return b.복화가능성 - a.복화가능성
-      return a.공차거리km - b.공차거리km
-    })
+  return 데모콜변환(currentLocation).filter((call) => !excludedIds.has(call.콜ID) && !excludedRoutes.has(노선키(call)))
 }
 
 export function useCarrierCalls(운송인ID: string, 매칭쿼리 = ''): CarrierCallsState {

@@ -39,7 +39,7 @@ function AiInsightNote({ decision, facts }: { decision: DispatchDecision; facts:
     <div className="mt-md border-t border-[#444] pt-md">
       <div className="flex items-center gap-xs">
         <span className="material-symbols-outlined text-[18px] text-primary-fixed" aria-hidden="true">auto_awesome</span>
-        <p className="text-label-sm font-bold text-primary-fixed">Gemini AI 생성 설명</p>
+        <p className="text-label-sm font-bold text-primary-fixed">AI 설명</p>
       </div>
       {로딩중 ? (
         <div className="mt-sm space-y-xs" aria-busy="true">
@@ -80,10 +80,10 @@ function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
     <div className="rounded-2xl bg-on-secondary-fixed p-xl text-secondary-fixed">
       <div className="flex items-center justify-between gap-lg">
         <div>
-          <p className="text-label-sm font-black text-primary-fixed">규칙 기반 요약</p>
+          <p className="text-label-sm font-black text-primary-fixed">Gemini 자연어 설명</p>
           <h2 className="mt-xs text-headline-sm font-black">이번 배차 조건 선택 결과</h2>
         </div>
-        <span className="rounded-full bg-[#292927] px-md py-sm text-label-sm font-bold text-secondary-fixed-dim">출처 · deterministicRules:shipper-summary-v1</span>
+        <span className="rounded-full bg-[#292927] px-md py-sm text-label-sm font-bold text-secondary-fixed-dim">자료 기반 생성형 AI 연동</span>
       </div>
       <p className="mt-lg max-w-4xl text-body-lg leading-7 text-secondary-fixed">{summary}</p>
       <AiInsightNote decision={decision} facts={facts} />

@@ -504,9 +504,7 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
             <p className="text-label-sm text-secondary-fixed-dim">기본 조건 해석</p>
             <p className="mt-sm text-body-md font-bold leading-6 text-secondary-fixed">{interpretation}</p>
             <p className="mt-md border-t border-[#444] pt-md text-label-sm leading-5 text-secondary-fixed-dim">
-              {exactWindowMatch
-                ? '선택한 시간창과 정확히 일치하는 원본 시나리오를 조회했습니다. (원본 행 직접 조회 · 원(KRW) 정수 · 별도 비용 미합산)'
-                : '선택한 시간창은 원본 참조 범위 밖이라 가장 가까운 원본 시나리오로 표시했습니다. (인접 원본 행 조회 · 원(KRW) 정수 · 별도 비용 미합산)'}
+              선택한 조건은 연결된 원본의 참조 범위 밖이라 데모 산식으로 표시했습니다. (원본 참조 범위 밖 · 원(KRW) 정수 · 별도 비용 미합산)
             </p>
           </div>
         </div>
