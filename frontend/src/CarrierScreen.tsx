@@ -558,8 +558,6 @@ function CarrierScreen() {
   const [운행진행률, set운행진행률] = useState(0)
   const [운행알림열림, set운행알림열림] = useState(false)
   const [안내, set안내] = useState('')
-  const [추천알림열림, set추천알림열림] = useState(false)
-  const [스크롤횟수, set스크롤횟수] = useState(0)
   const [확정중, set확정중] = useState(false)
   const [확정콜ID, set확정콜ID] = useState('')
   const [실패피드백, set실패피드백] = useState<ApiFeedbackRequest | null>(null)
@@ -567,9 +565,6 @@ function CarrierScreen() {
   const 확정잠금 = useRef(false)
   const 안내타이머 = useRef<number | undefined>(undefined)
   const 잠금타이머 = useRef<number | undefined>(undefined)
-  const 보드컨텐츠 = useRef<HTMLElement>(null)
-  const 보드스크롤위치 = useRef(0)
-  const 스크롤디바운스 = useRef<number | undefined>(undefined)
 
   const 후보로 = (calls: 추천콜상세[]): 계산후보[] => {
     const homeArea = 선호조건.세부지역 || '서울'
@@ -599,27 +594,6 @@ function CarrierScreen() {
   const 선택후보 = 후보.find((item) => item.콜.콜ID === 선택콜ID)
 
   useEffect(() => {
-    보드스크롤위치.current = 0
-    set스크롤횟수(0)
-    if (단계 !== 3 || 초기매칭.상태 === 'loading' || 후보.length === 0) set추천알림열림(false)
-  }, [단계, 초기매칭.상태, 후보.length, 매칭쿼리])
-
-  useEffect(() => {
-    if (단계 === 3 && 스크롤횟수 >= 2) set추천알림열림(true)
-  }, [단계, 스크롤횟수])
-
-  const 오더게시판스크롤 = () => {
-    if (단계 !== 3 || 초기매칭.상태 === 'loading' || 후보.length === 0) return
-    if (스크롤디바운스.current !== undefined) window.clearTimeout(스크롤디바운스.current)
-    스크롤디바운스.current = window.setTimeout(() => {
-      const el = 보드컨텐츠.current
-      if (!el) return
-      if (el.scrollTop - 보드스크롤위치.current > 15) set스크롤횟수((count) => count + 1)
-      보드스크롤위치.current = el.scrollTop
-    }, 180)
-  }
-
-  useEffect(() => {
     if (단계 !== 5 || !현재콜) return
     set운행진행률(0)
     set운행알림열림(false)
@@ -642,7 +616,6 @@ function CarrierScreen() {
   useEffect(() => () => {
     if (안내타이머.current !== undefined) window.clearTimeout(안내타이머.current)
     if (잠금타이머.current !== undefined) window.clearTimeout(잠금타이머.current)
-    if (스크롤디바운스.current !== undefined) window.clearTimeout(스크롤디바운스.current)
   }, [])
 
   const showNotice = (message: string) => {
@@ -672,15 +645,14 @@ function CarrierScreen() {
     set단계(0); set확장오더(등록화물_목록[1]?.id ?? ''); set프로필열림(false)
     set선호조건(빈선호조건); set매칭쿼리(''); set후속쿼리(''); set선택콜ID('')
     set현재콜(undefined); set완료콜([]); set후속콜수(0); set운행진행률(0); set운행알림열림(false)
-    set추천알림열림(false); set확정중(false); set확정콜ID(''); set실패피드백(null); set여정ID(crypto.randomUUID())
+    set확정중(false); set확정콜ID(''); set실패피드백(null); set여정ID(crypto.randomUUID())
     set안내(''); 확정잠금.current = false
   }
 
-  const 추천알림열기 = () => {
+  const 추천오더열기 = () => {
     const first = 후보[0]
     if (!first) return
     set선택콜ID(first.콜.콜ID)
-    set추천알림열림(false)
     set단계(4)
   }
 
@@ -770,7 +742,9 @@ function CarrierScreen() {
       case 0: return { label: '최적안 추천 받기', disabled: false, helper: undefined }
       case 1: return { label: '확인했어요', disabled: false, helper: undefined }
       case 2: return { label: '저장하고 오더 보기', disabled: !선호조건완료인가(선호조건), helper: !선호조건완료인가(선호조건) ? '모든 분류에서 하나 이상 선택해 주세요.' : '조건이 모두 선택됐어요.' }
-      case 3: return null
+      case 3: return 초기매칭.상태 === 'loading'
+        ? { label: 'AI 추천 오더 찾는 중…', disabled: true, helper: '등록된 오더를 분석하고 있어요.' }
+        : { label: 'AI 추천 오더 보기', disabled: 후보.length === 0, helper: 후보.length === 0 ? '현재 조건에 맞는 추천 오더가 없어요.' : '순수익과 공차거리를 반영한 추천 TOP 3를 확인합니다.' }
       case 4: return { label: 확정콜ID ? '확정한 콜 경로 보기' : 확정중 ? '콜 확정 중…' : '이 콜 확정하기', disabled: !선택콜ID || 확정중, helper: !선택콜ID ? '운행할 콜을 하나 선택해 주세요.' : undefined }
       // 55% 이상이면 추천 알림이 하단을 차지한다. 같은 동작을 하는 버튼을 겹쳐 두지 않는다.
       case 5: return 운행알림열림 ? null : { label: `운행 중 · ${운행진행률}%`, disabled: true, helper: '55% 이상 운행하면 다음 콜을 확인할 수 있어요.' }
@@ -779,7 +753,7 @@ function CarrierScreen() {
     }
   })()
 
-  const actionClick = 단계 === 4 ? 콜확정 : 단계 === 5 ? 운행알림열기 : 단계 === 7 ? 전체초기화 : 기본다음
+  const actionClick = 단계 === 3 ? 추천오더열기 : 단계 === 4 ? 콜확정 : 단계 === 5 ? 운행알림열기 : 단계 === 7 ? 전체초기화 : 기본다음
 
   const 피드백재시도 = () => {
     if (!실패피드백) return
@@ -797,7 +771,7 @@ function CarrierScreen() {
         <div className="carrier-mobile-shell">
           <div className="carrier-app">
             <AppHeader 단계={단계} onBack={이전} />
-            <main key={단계} ref={보드컨텐츠} className="carrier-content carrier-step-in" onScroll={오더게시판스크롤}>
+            <main key={단계} className="carrier-content carrier-step-in">
               {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} />}
               {단계 === 1 && <ProfileScreen />}
               {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
@@ -808,7 +782,6 @@ function CarrierScreen() {
               {단계 === 7 && <ReportScreen calls={완료콜} />}
             </main>
             {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} pending={단계 === 4 && 확정중} />}
-            {단계 === 3 && 추천알림열림 && <CandidateNotification title={`추천 후보 ${Math.min(3, 후보.length)}개가 도착했어요`} description="눌러서 예상 순수익을 비교해 보세요." label={`추천 후보 ${Math.min(3, 후보.length)}개 비교하기`} onOpen={추천알림열기} />}
             {단계 === 5 && 운행알림열림 && <CandidateNotification title={운행알림.title} description={운행알림.description} label={운행알림.label} onOpen={운행알림열기} />}
             {안내 && <div className="carrier-toast" role="status"><span>{안내}</span>{실패피드백 && <button type="button" onClick={피드백재시도}>다시 시도</button>}</div>}
           </div>
