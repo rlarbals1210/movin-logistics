@@ -1,0 +1,9 @@
+[project]
+name = "movin-backend"
+version = "0.1.0"
+description = "MOVIN 매칭 API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+]
