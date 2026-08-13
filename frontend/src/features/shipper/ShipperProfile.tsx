@@ -33,7 +33,7 @@ function ShipperProfile({ selections, form, modelMetadata, decision, onEditPrefe
           </div>
           <div className="rounded-xl bg-surface-container-low p-lg">
             <p className="text-label-sm text-secondary">담당자 정보</p>
-            <p className="mt-sm text-headline-sm font-black text-on-surface">배차 담당자</p>
+            <p className="mt-sm text-headline-sm font-black text-on-surface">김무빈</p>
             <p className="mt-xs text-body-md text-secondary">연락처·계정 정보 API 연결 전</p>
           </div>
         </div>
@@ -51,7 +51,7 @@ function ShipperProfile({ selections, form, modelMetadata, decision, onEditPrefe
               선호 조건 수정
             </button>
           </div>
-          <div className="mt-lg grid grid-cols-3 gap-md">
+          <div className="mt-lg grid grid-cols-2 gap-md">
             {preferenceGroups.map((group) => (
               <div key={group.id} className="rounded-xl bg-surface-container-low p-md">
                 <p className="text-label-sm text-secondary">{group.title}</p>

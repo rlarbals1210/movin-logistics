@@ -35,7 +35,7 @@ function PreferenceSetup({
           <div className="min-w-[180px] rounded-xl bg-surface-container-low px-md py-sm">
             <div className="flex items-center justify-between text-label-sm">
               <span className="text-secondary">설정 진행률</span>
-              <strong className="text-on-surface">{answeredCount}/3 완료</strong>
+              <strong className="text-on-surface">{answeredCount}/{preferenceGroups.length} 완료</strong>
             </div>
             <div className="mt-sm h-2 overflow-hidden rounded-full bg-surface-container-high" aria-hidden="true">
               <div
@@ -50,7 +50,7 @@ function PreferenceSetup({
       <div className="space-y-md">
         {preferenceGroups.map((group) => {
           const selected = selections[group.id]
-          const reachedLimit = selected.length >= 2
+          const reachedLimit = selected.length >= group.maxSelect
 
           return (
             <fieldset
@@ -72,7 +72,7 @@ function PreferenceSetup({
                       <p className="mt-xs text-body-md text-secondary">{group.description}</p>
                     )}
                     <p className="mt-sm text-label-sm text-secondary">
-                      최소 1개 · 최대 2개
+                      최소 1개 · 최대 {group.maxSelect}개
                       {reachedLimit ? ' · 최대 선택 완료' : ''}
                     </p>
                   </div>
@@ -81,7 +81,7 @@ function PreferenceSetup({
                 <div className="grid min-w-0 grid-cols-1 gap-sm sm:grid-cols-2">
                   {group.options.map((option) => {
                     const isSelected = selected.includes(option)
-                    const isDisabled = reachedLimit && !isSelected
+                    const isDisabled = group.maxSelect > 1 && reachedLimit && !isSelected
 
                     return (
                       <button

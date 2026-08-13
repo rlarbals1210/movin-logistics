@@ -1,4 +1,4 @@
-export type PreferenceGroupId = 'dispatch' | 'schedule' | 'carrier'
+export type PreferenceGroupId = 'priority' | 'schedule'
 
 export type PreferenceSelections = Record<PreferenceGroupId, string[]>
 
@@ -9,16 +9,18 @@ type PreferenceGroup = {
   description: string
   icon: string
   options: string[]
+  maxSelect: number
 }
 
 export const preferenceGroups: PreferenceGroup[] = [
   {
-    id: 'dispatch',
+    id: 'priority',
     number: '01',
-    title: '발주 시 주요 고려 항목을 선택해 주십시오.',
+    title: '발주·콜 등록 시 최우선으로 고려할 항목을 선택해 주십시오.',
     description: '',
     icon: 'local_shipping',
-    options: ['빠른 배차', '낮은 운임', '많은 후보'],
+    options: ['빠른 배차', '낮은 운임', '안전 기록', '정시성', '품목 경험'],
+    maxSelect: 2,
   },
   {
     id: 'schedule',
@@ -32,13 +34,6 @@ export const preferenceGroups: PreferenceGroup[] = [
       '야간 상차 18:00~06:00',
       '일정 조정 가능',
     ],
-  },
-  {
-    id: 'carrier',
-    number: '03',
-    title: '콜 등록 시 최우선으로 비교할 결과 지표를 선택해 주십시오.',
-    description: '',
-    icon: 'badge',
-    options: ['안전 기록', '정시성', '품목 경험'],
+    maxSelect: 1,
   },
 ]

@@ -45,9 +45,8 @@ const shipperTabs: ShipperTab[] = [
 ]
 
 const initialSelections: PreferenceSelections = {
-  dispatch: [],
+  priority: [],
   schedule: [],
-  carrier: [],
 }
 
 const initialComparisonOptions: ComparisonOptions = {
@@ -137,10 +136,10 @@ function DecisionSummary({
       <div className="mt-lg rounded-xl bg-surface-container-low p-md">
         <div className="flex items-center justify-between">
           <span className="text-label-sm text-secondary">필수 설정</span>
-          <strong className="text-label-md text-on-surface">{answeredCount}/3</strong>
+          <strong className="text-label-md text-on-surface">{answeredCount}/{preferenceGroups.length}</strong>
         </div>
         <div className="mt-sm h-2 overflow-hidden rounded-full bg-surface-container-high">
-          <div className="h-full rounded-full bg-primary-container transition-[width] duration-300" style={{ width: `${Math.round(answeredCount / 3 * 100)}%` }} />
+          <div className="h-full rounded-full bg-primary-container transition-[width] duration-300" style={{ width: `${Math.round((answeredCount / preferenceGroups.length) * 100)}%` }} />
         </div>
       </div>
 
@@ -223,13 +222,17 @@ function ShipperScreen() {
   const togglePreference = (groupId: PreferenceGroupId, option: string) => {
     setPreferencesSaved(false)
     setSelections((currentSelections) => {
+      const group = preferenceGroups.find((currentGroupOption) => currentGroupOption.id === groupId)!
       const currentGroup = currentSelections[groupId]
       const exists = currentGroup.includes(option)
-      if (!exists && currentGroup.length >= 2) return currentSelections
-      return {
-        ...currentSelections,
-        [groupId]: exists ? currentGroup.filter((currentOption) => currentOption !== option) : [...currentGroup, option],
+      if (exists) {
+        return { ...currentSelections, [groupId]: currentGroup.filter((currentOption) => currentOption !== option) }
       }
+      if (group.maxSelect === 1) {
+        return { ...currentSelections, [groupId]: [option] }
+      }
+      if (currentGroup.length >= group.maxSelect) return currentSelections
+      return { ...currentSelections, [groupId]: [...currentGroup, option] }
     })
   }
 
