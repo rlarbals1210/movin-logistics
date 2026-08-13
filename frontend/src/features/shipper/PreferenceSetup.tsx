@@ -68,7 +68,9 @@ function PreferenceSetup({
                       <span className="text-label-sm font-bold text-primary">{group.number}</span>
                       <h2 className="text-headline-sm font-bold text-on-surface">{group.title}</h2>
                     </div>
-                    <p className="mt-xs text-body-md text-secondary">{group.description}</p>
+                    {group.description && (
+                      <p className="mt-xs text-body-md text-secondary">{group.description}</p>
+                    )}
                     <p className="mt-sm text-label-sm text-secondary">
                       최소 1개 · 최대 2개
                       {reachedLimit ? ' · 최대 선택 완료' : ''}
@@ -114,9 +116,6 @@ function PreferenceSetup({
       <div className="flex flex-col items-stretch justify-between gap-md rounded-2xl bg-on-secondary-fixed px-lg py-lg text-secondary-fixed md:flex-row md:items-center md:px-xl">
         <div>
           <p className="text-label-md font-bold text-primary-fixed">선택 정보는 내 정보에서 다시 수정할 수 있어요.</p>
-          <p className="mt-xs text-body-md text-secondary-fixed-dim">
-            세 질문에 모두 답하면 다음 단계인 콜 등록을 시작할 수 있습니다.
-          </p>
         </div>
         <button
           type="button"

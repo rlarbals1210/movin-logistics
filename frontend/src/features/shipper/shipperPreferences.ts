@@ -15,8 +15,8 @@ export const preferenceGroups: PreferenceGroup[] = [
   {
     id: 'dispatch',
     number: '01',
-    title: '배차 결과에서 중요해요',
-    description: '발주 시 주요 고려 항목을 선택해 주십시오.',
+    title: '발주 시 주요 고려 항목을 선택해 주십시오.',
+    description: '',
     icon: 'local_shipping',
     options: ['빠른 배차', '낮은 운임', '많은 후보'],
   },
@@ -36,8 +36,8 @@ export const preferenceGroups: PreferenceGroup[] = [
   {
     id: 'carrier',
     number: '03',
-    title: '운송인 선택에서 중요해요',
-    description: '콜 등록 시 최우선으로 비교할 결과 지표를 선택해 주십시오.',
+    title: '콜 등록 시 최우선으로 비교할 결과 지표를 선택해 주십시오.',
+    description: '',
     icon: 'badge',
     options: ['안전 기록', '정시성', '품목 경험'],
   },
