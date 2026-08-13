@@ -367,11 +367,11 @@ function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery
   )
 }
 
-function CandidateNotification({ count, onOpen }: { count: number; onOpen: () => void }) {
+function CandidateNotification({ title, description, label, onOpen }: { title: string; description: string; label: string; onOpen: () => void }) {
   return (
-    <button type="button" className="carrier-candidate-alert" onClick={onOpen} aria-label={`추천 후보 ${count}개 비교하기`}>
+    <button type="button" className="carrier-candidate-alert" onClick={onOpen} aria-label={label}>
       <span className="carrier-alert-icon"><Icon name="bell" size={20} /></span>
-      <span><strong>추천 후보 {count}개가 도착했어요</strong><small>눌러서 예상 순수익을 비교해 보세요.</small></span>
+      <span><strong>{title}</strong><small>{description}</small></span>
       <Icon name="chevron" size={18} />
     </button>
   )
@@ -776,6 +776,13 @@ function CarrierScreen() {
     })
   }
 
+  const 운행알림 = (() => {
+    if (후속콜수 >= 2) return { title: '오늘 운행을 마칠 시간이에요', description: '눌러서 운행 리포트를 확인해 보세요.', label: '운행 리포트 보기' }
+    if (후속매칭.상태 === 'loading') return { title: '다음 추천 콜을 찾고 있어요', description: '눌러서 결과를 확인해 보세요.', label: '다음 추천 콜 확인하기' }
+    if (후속후보.length === 0) return { title: '추천할 다음 콜이 없어요', description: '눌러서 운행을 마무리해 주세요.', label: '운행 마무리하기' }
+    return { title: '다음 추천 콜이 도착했어요', description: '눌러서 예상 순수익을 확인해 보세요.', label: '다음 추천 콜 확인하기' }
+  })()
+
   const action = (() => {
     switch (단계) {
       case 0: return { label: '최적안 추천 받기', disabled: false, helper: undefined }
@@ -783,7 +790,8 @@ function CarrierScreen() {
       case 2: return { label: '저장하고 오더 보기', disabled: !선호조건완료인가(선호조건), helper: !선호조건완료인가(선호조건) ? '모든 분류에서 하나 이상 선택해 주세요.' : '조건이 모두 선택됐어요.' }
       case 3: return null
       case 4: return { label: 확정콜ID ? '확정한 콜 경로 보기' : 확정중 ? '콜 확정 중…' : '이 콜 확정하기', disabled: !선택콜ID || 확정중, helper: !선택콜ID ? '운행할 콜을 하나 선택해 주세요.' : undefined }
-      case 5: return { label: 운행진행률 >= 55 ? (후속콜수 >= 2 ? '운행 완료하고 리포트 보기' : '다음 콜 후보 보기') : `운행 중 · ${운행진행률}%`, disabled: 운행진행률 < 55, helper: 운행진행률 < 55 ? '55% 이상 운행하면 다음 콜을 확인할 수 있어요.' : undefined }
+      // 55% 이상이면 추천 알림이 하단을 차지한다. 같은 동작을 하는 버튼을 겹쳐 두지 않는다.
+      case 5: return 운행알림열림 ? null : { label: `운행 중 · ${운행진행률}%`, disabled: true, helper: '55% 이상 운행하면 다음 콜을 확인할 수 있어요.' }
       case 6: return null
       default: return { label: '처음으로', disabled: false, helper: undefined }
     }
@@ -818,8 +826,8 @@ function CarrierScreen() {
               {단계 === 7 && <ReportScreen calls={완료콜} />}
             </main>
             {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} pending={단계 === 4 && 확정중} />}
-            {단계 === 3 && 추천알림열림 && <CandidateNotification count={Math.min(3, 후보.length)} onOpen={추천알림열기} />}
-            {단계 === 5 && 운행알림열림 && <CandidateNotification count={후속콜수 >= 2 ? 완료콜.length + 1 : Math.max(1, 후속후보.length)} onOpen={운행알림열기} />}
+            {단계 === 3 && 추천알림열림 && <CandidateNotification title={`추천 후보 ${Math.min(3, 후보.length)}개가 도착했어요`} description="눌러서 예상 순수익을 비교해 보세요." label={`추천 후보 ${Math.min(3, 후보.length)}개 비교하기`} onOpen={추천알림열기} />}
+            {단계 === 5 && 운행알림열림 && <CandidateNotification title={운행알림.title} description={운행알림.description} label={운행알림.label} onOpen={운행알림열기} />}
             {안내 && <div className="carrier-toast" role="status"><span>{안내}</span>{실패피드백 && <button type="button" onClick={피드백재시도}>다시 시도</button>}</div>}
           </div>
         </div>

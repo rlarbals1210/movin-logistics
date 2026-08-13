@@ -320,6 +320,11 @@ textarea:focus-visible {
   padding: 22px 20px 34px;
 }
 
+/* 추천 알림은 콘텐츠 위에 떠 있다. 떠 있는 동안만 마지막 줄이 가리지 않도록 여백을 준다. */
+.carrier-app:has(.carrier-candidate-alert) .carrier-screen {
+  padding-bottom: 112px;
+}
+
 .carrier-screen h1 {
   margin: 0;
   font-size: 28px;
