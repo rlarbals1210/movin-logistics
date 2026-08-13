@@ -202,8 +202,8 @@ function ReportContent({ form, scenarios, modelMetadata, options, decision, comp
 
 function ReportPrintDialog({ onClose, ...props }: ShipperReportProps & { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-xl print:static print:block print:bg-white print:p-0">
-      <section role="dialog" aria-modal="true" aria-labelledby="print-report-title" className="report-print-surface max-h-[92vh] w-full max-w-[1180px] overflow-y-auto rounded-3xl bg-background p-xl shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:p-0 print:shadow-none">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-xl print:static print:block print:bg-white print:p-0 animate-[mv-backdrop-in_180ms_ease-out] motion-reduce:animate-none print:animate-none">
+      <section role="dialog" aria-modal="true" aria-labelledby="print-report-title" className="report-print-surface max-h-[92vh] w-full max-w-[1180px] overflow-y-auto rounded-3xl bg-background p-xl shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:p-0 print:shadow-none animate-[mv-modal-in_200ms_ease-out] motion-reduce:animate-none print:animate-none">
         <div className="mb-lg flex items-center justify-between gap-lg print:hidden">
           <div>
             <p className="text-label-sm font-black text-primary">저장 전 미리보기</p>
