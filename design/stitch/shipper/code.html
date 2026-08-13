@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mov!n Shipper Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        outline: "#7c775f",
+                        "on-secondary-fixed-variant": "#474746",
+                        "tertiary-fixed": "#e2e2e2",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#e2dfde",
+                        "inverse-surface": "#2f3131",
+                        "primary-fixed-dim": "#dec800",
+                        secondary: "#5f5e5e",
+                        "surface-variant": "#e2e2e2",
+                        "on-surface": "#1a1c1c",
+                        "inverse-primary": "#dec800",
+                        "outline-variant": "#cdc7aa",
+                        "on-primary": "#ffffff",
+                        "on-background": "#1a1c1c",
+                        "surface-tint": "#6a5f00",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        tertiary: "#5d5f5f",
+                        "on-primary-container": "#716600",
+                        background: "#f9f9f9",
+                        "surface-dim": "#dadada",
+                        "surface-container-highest": "#e2e2e2",
+                        surface: "#f9f9f9",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-high": "#e8e8e8",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "on-secondary-container": "#636262",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "tertiary-container": "#e3e3e3",
+                        "on-tertiary-container": "#636565",
+                        "primary-container": "#fee500",
+                        error: "#ba1a1a",
+                        "surface-container": "#eeeeee",
+                        "surface-container-low": "#f3f3f3",
+                        "primary-fixed": "#fde400",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-primary-fixed": "#201c00",
+                        "surface-bright": "#f9f9f9",
+                        "on-surface-variant": "#4b4732",
+                        primary: "#6a5f00",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "on-primary-fixed-variant": "#504700",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#c8c6c5",
+                        "secondary-fixed": "#e5e2e1",
+                        "error-container": "#ffdad6"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        md: "16px",
+                        lg: "24px",
+                        "margin-desktop": "40px",
+                        "margin-mobile": "16px",
+                        sm: "8px",
+                        xs: "4px",
+                        base: "4px",
+                        gutter: "20px",
+                        xl: "32px"
+                    },
+                    fontFamily: {
+                        "headline-sm": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                        "display-lg-mobile": ["28px", { lineHeight: "36px", fontWeight: "700" }],
+                        "headline-md": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700" }],
+                        "label-sm": ["12px", { lineHeight: "16px", fontWeight: "500" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "display-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "label-md": ["14px", { lineHeight: "20px", fontWeight: "600" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-outline">
+<div class="flex items-center">
+<span class="font-headline-md font-black text-on-surface dark:text-on-primary-fixed mr-xl">Mov!n</span>
+<div class="flex space-x-lg">
+<a class="text-primary dark:text-primary-fixed border-b-2 border-primary dark:border-primary-fixed font-bold py-2" href="#">Shipper</a>
+<a class="text-secondary dark:text-secondary-fixed py-2 hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors" href="#">Carrier</a>
+</div>
+</div>
+<div class="flex items-center space-x-md">
+<button class="scale-95 active:scale-90 transition-transform p-2 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined text-on-surface">notifications</span>
+</button>
+<button class="scale-95 active:scale-90 transition-transform p-2 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined text-on-surface">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden ml-md cursor-pointer hover:opacity-80 transition-opacity">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a logistics manager in a bright, modern corporate environment. Light, natural illumination highlighting a clean, friendly aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaPo4Ym8P0kQNGnZV8tofDIy-T1HUk2uabEQa_qnKq10D9P1_jPMiZfwAqAw80fFHDsCNlsVFZTpItuwyT-KzRZ3_i2ZEqgS0uMgooiXSNUzSTRw1dnGUuOjcLP5BcjC5CD6Qt6Mx4Aava68A2hs7aQ3H9Py0a5AJuMXm_CHvGOu2hnH37ZSWDX-vVAgDKeSi7sGJvGsQ46f5mTsqOY37DUiN1aJLzUC5HD6RpwNlVzvfurSbC5iKo"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar & Main Content Wrapper -->
+<div class="flex pt-16 min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] py-lg bg-on-secondary-fixed dark:bg-surface-container-highest shadow-sm z-40 hidden md:flex flex-col">
+<div class="px-lg mb-xl">
+<h2 class="font-headline-sm text-primary-fixed mb-1">Shipper Portal</h2>
+<p class="font-label-sm text-secondary-fixed-dim">Logistics Management</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-md text-secondary-fixed-dim px-lg py-md hover:bg-on-secondary-fixed-variant transition-all scale-[0.98] active:scale-95" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md">Required Settings</span>
+</a>
+<a class="flex items-center gap-md bg-transparent text-primary-fixed border-l-4 border-primary-fixed px-lg py-md hover:bg-on-secondary-fixed-variant transition-all scale-[0.98] active:scale-95" href="#">
+<span class="material-symbols-outlined">add_box</span>
+<span class="font-label-md">Register Call</span>
+</a>
+<a class="flex items-center gap-md text-secondary-fixed-dim px-lg py-md hover:bg-on-secondary-fixed-variant transition-all scale-[0.98] active:scale-95" href="#">
+<span class="material-symbols-outlined">compare_arrows</span>
+<span class="font-label-md">Compare Conditions</span>
+</a>
+<a class="flex items-center gap-md text-secondary-fixed-dim px-lg py-md hover:bg-on-secondary-fixed-variant transition-all scale-[0.98] active:scale-95" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md">Monthly Report</span>
+</a>
+<a class="flex items-center gap-md text-secondary-fixed-dim px-lg py-md hover:bg-on-secondary-fixed-variant transition-all scale-[0.98] active:scale-95" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-label-md">Chat</span>
+</a>
+<a class="flex items-center gap-md text-secondary-fixed-dim px-lg py-md hover:bg-on-secondary-fixed-variant transition-all scale-[0.98] active:scale-95" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-md">My Info</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-[280px] p-lg md:p-margin-desktop bg-background flex flex-col md:flex-row gap-lg">
+<!-- Center Cards Canvas -->
+<div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg auto-rows-min">
+<!-- Blank Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg min-h-[300px] shadow-[0_2px_4px_rgba(0,0,0,0.04)] col-span-1 md:col-span-2 lg:col-span-3 flex items-center justify-center">
+<span class="text-secondary font-body-md opacity-50">Content Canvas</span>
+</div>
+<!-- Blank Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg min-h-[250px] shadow-[0_2px_4px_rgba(0,0,0,0.04)] flex items-center justify-center">
+<span class="text-secondary font-body-md opacity-50">Content Canvas</span>
+</div>
+<!-- Blank Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg min-h-[250px] shadow-[0_2px_4px_rgba(0,0,0,0.04)] flex items-center justify-center">
+<span class="text-secondary font-body-md opacity-50">Content Canvas</span>
+</div>
+<!-- Blank Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg min-h-[250px] shadow-[0_2px_4px_rgba(0,0,0,0.04)] flex items-center justify-center">
+<span class="text-secondary font-body-md opacity-50">Content Canvas</span>
+</div>
+</div>
+<!-- Right Panel: Decision Summary -->
+<aside class="w-full md:w-[320px] bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-[0_2px_4px_rgba(0,0,0,0.04)] p-lg flex flex-col h-fit sticky top-[88px]">
+<h3 class="font-headline-sm text-on-surface mb-lg">Decision Summary</h3>
+<div class="space-y-md flex-1">
+<!-- Placeholder summary items -->
+<div class="flex items-start gap-sm">
+<div class="w-2 h-2 rounded-full bg-primary-container mt-2"></div>
+<div class="flex-1">
+<div class="h-4 bg-surface-container rounded w-3/4 mb-2"></div>
+<div class="h-3 bg-surface-container rounded w-1/2"></div>
+</div>
+</div>
+<div class="flex items-start gap-sm">
+<div class="w-2 h-2 rounded-full bg-surface-container-high mt-2"></div>
+<div class="flex-1">
+<div class="h-4 bg-surface-container rounded w-5/6 mb-2"></div>
+<div class="h-3 bg-surface-container rounded w-2/3"></div>
+</div>
+</div>
+<div class="flex items-start gap-sm">
+<div class="w-2 h-2 rounded-full bg-surface-container-high mt-2"></div>
+<div class="flex-1">
+<div class="h-4 bg-surface-container rounded w-4/5 mb-2"></div>
+<div class="h-3 bg-surface-container rounded w-1/3"></div>
+</div>
+</div>
+</div>
+<button class="mt-xl w-full bg-primary-container text-on-secondary-fixed font-label-md py-3 rounded-full hover:opacity-90 active:scale-95 transition-all border-b border-[#D4C000]">
+                    Confirm Action
+                </button>
+</aside>
+</main>
+</div>
+</body></html>
