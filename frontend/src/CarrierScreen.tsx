@@ -587,6 +587,7 @@ function CarrierScreen() {
   const [안내, set안내] = useState('')
   const [새로고침시각, set새로고침시각] = useState('방금 전')
   const [추천알림열림, set추천알림열림] = useState(false)
+  const [스크롤횟수, set스크롤횟수] = useState(0)
   const [확정중, set확정중] = useState(false)
   const [확정콜ID, set확정콜ID] = useState('')
   const [실패피드백, set실패피드백] = useState<ApiFeedbackRequest | null>(null)
@@ -594,6 +595,9 @@ function CarrierScreen() {
   const 확정잠금 = useRef(false)
   const 안내타이머 = useRef<number | undefined>(undefined)
   const 잠금타이머 = useRef<number | undefined>(undefined)
+  const 보드컨텐츠 = useRef<HTMLElement>(null)
+  const 보드스크롤위치 = useRef(0)
+  const 스크롤디바운스 = useRef<number | undefined>(undefined)
 
   const 후보로 = (calls: 추천콜상세[]): 계산후보[] => {
     const homeArea = 선호조건.세부지역 || '서울'
@@ -623,13 +627,25 @@ function CarrierScreen() {
   const 선택후보 = 후보.find((item) => item.콜.콜ID === 선택콜ID)
 
   useEffect(() => {
-    if (단계 !== 3 || 초기매칭.상태 === 'loading' || 후보.length === 0) {
-      set추천알림열림(false)
-      return
-    }
-    const timer = window.setTimeout(() => set추천알림열림(true), 2200)
-    return () => window.clearTimeout(timer)
+    보드스크롤위치.current = 0
+    set스크롤횟수(0)
+    if (단계 !== 3 || 초기매칭.상태 === 'loading' || 후보.length === 0) set추천알림열림(false)
   }, [단계, 초기매칭.상태, 후보.length, 매칭쿼리])
+
+  useEffect(() => {
+    if (단계 === 3 && 스크롤횟수 >= 2) set추천알림열림(true)
+  }, [단계, 스크롤횟수])
+
+  const 오더게시판스크롤 = () => {
+    if (단계 !== 3 || 초기매칭.상태 === 'loading' || 후보.length === 0) return
+    if (스크롤디바운스.current !== undefined) window.clearTimeout(스크롤디바운스.current)
+    스크롤디바운스.current = window.setTimeout(() => {
+      const el = 보드컨텐츠.current
+      if (!el) return
+      if (el.scrollTop - 보드스크롤위치.current > 15) set스크롤횟수((count) => count + 1)
+      보드스크롤위치.current = el.scrollTop
+    }, 180)
+  }
 
   useEffect(() => {
     if (단계 !== 5 || !현재콜) return
@@ -654,6 +670,7 @@ function CarrierScreen() {
   useEffect(() => () => {
     if (안내타이머.current !== undefined) window.clearTimeout(안내타이머.current)
     if (잠금타이머.current !== undefined) window.clearTimeout(잠금타이머.current)
+    if (스크롤디바운스.current !== undefined) window.clearTimeout(스크롤디바운스.current)
   }, [])
 
   const showNotice = (message: string) => {
@@ -799,7 +816,7 @@ function CarrierScreen() {
       <div className="carrier-mobile-shell">
         <div className="carrier-app">
           <AppHeader 단계={단계} onBack={이전} onMenu={() => set메뉴열림(true)} onNotice={() => showNotice('새 알림이 없습니다.')} onHelp={() => showNotice('고객센터 연결을 준비하고 있어요.')} />
-          <main key={단계} className="carrier-content carrier-step-in">
+          <main key={단계} ref={보드컨텐츠} className="carrier-content carrier-step-in" onScroll={오더게시판스크롤}>
             {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
             {단계 === 1 && <ProfileScreen />}
             {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
