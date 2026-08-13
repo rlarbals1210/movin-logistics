@@ -1,4 +1,4 @@
-import type { InsightsRequest, InsightsResponse } from './types'
+import type { InsightsResponse } from './types'
 
 /** Railway 백엔드 주소. .env 의 VITE_API_BASE 로 덮어쓴다 */
 export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -43,7 +43,10 @@ export function post<T>(path: string, body: unknown): Promise<T> {
  * 실패는 전부 빈 문자열로 흡수한다. 핸들러도 6개 경로 모두 `{ text: '' }` 로
  * 떨어지므로, 호출부는 text 가 비면 영역을 숨기기만 하면 된다.
  */
-export async function fetchInsights(body: InsightsRequest): Promise<InsightsResponse> {
+export async function fetchInsights(body: {
+  audience: 'SHIPPER' | 'CARRIER'
+  facts: unknown
+}): Promise<InsightsResponse> {
   try {
     const res = await fetch('/api/insights', {
       method: 'POST',
