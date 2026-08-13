@@ -109,23 +109,89 @@ export function getNextRelaxedWindow(current: ScenarioResult['windowMinutes']) {
 }
 
 /**
- * 차종 대체 효과를 조정안에 합성하는 결정론적 데모 규칙.
+ * 차종 대체 효과를 조정안에 합성하는 결정론적 규칙.
  *
- * 현재 원본은 톤급×시간창 축만 제공하므로 차종 대체를 모델 출력으로 가장하지
- * 않는다. 동일 톤급의 호환 차종까지 공급 풀을 넓힌다는 가정으로 후보군을 20%
- * 늘리고, 확대된 경쟁 효과를 운임·배차시간·유찰 확률에 각각 반영한다.
+ * 후보 확대 배율은 운송인 11,800명의 `톤급×적재형태` 분포, 탄력성 계수는
+ * 개입 없는 콜 10,945건의 ln(후보수) 회귀 결과를 사용한다. 전달받은
+ * `vehicle_substitution.py`와 수식·상수·반올림 순서를 동일하게 유지한다.
  */
-export const 차종대체계산출처 = 'deterministicRules:vehicle-substitution-v1'
+export const 차종대체계산출처 = 'deterministic_rules:vehicle-substitution-v1'
+export const 차종대체표본근거 = '운송인 11,800명 분포 · 순수 관측 콜 10,945건 회귀'
 
-export function 차종대체효과적용(scenario: ScenarioResult, enabled: boolean): ScenarioResult {
+export type 차종대체적재형태 = '카고' | '윙바디' | '탑차' | '냉장' | '냉동'
+
+const 차종대체호환차종: Record<차종대체적재형태, 차종대체적재형태[]> = {
+  카고: ['카고', '윙바디'],
+  윙바디: ['윙바디', '카고'],
+  탑차: ['탑차', '냉장', '윙바디'],
+  냉장: ['냉장', '탑차', '냉동'],
+  냉동: ['냉동', '냉장'],
+}
+
+const 차종대체원배율: Record<차종대체적재형태, number> = {
+  카고: 1.89,
+  윙바디: 2.12,
+  탑차: 2.76,
+  // 원자료의 냉장 배율은 표본이 작아 18~22배까지 튄다. 과대 추정을 막기 위해 3.0 고정 상한을 쓴다.
+  냉장: 3.0,
+  냉동: 1.10,
+}
+
+const 차종대체배율상한 = 3.0
+const 배차분_ln탄력성 = -28.06
+const 운임원_ln탄력성 = -15_892
+const 유찰률_ln탄력성 = -0.01504
+
+export type 차종대체계산근거 = {
+  적재형태: 차종대체적재형태 | '미분류'
+  호환차종: 차종대체적재형태[]
+  확대배율: number
+  냉장상한적용: boolean
+}
+
+/** 선택 차량을 근거 데이터의 다섯 적재형태로 변환한다. */
+export function 차종대체적재형태분류(form: CallForm): 차종대체적재형태 | undefined {
+  const vehicle = getSelectedVehicle(form)
+  const cargo = getSelectedCargo(form)
+
+  // 제품 선택지의 `냉장·냉동탑`은 화물 종류로 운송 온도를 확정한다.
+  if (vehicle.includes('냉장') && vehicle.includes('냉동')) return cargo.includes('냉동') ? '냉동' : '냉장'
+  if (vehicle.includes('냉동')) return '냉동'
+  if (vehicle.includes('냉장')) return '냉장'
+  if (vehicle.includes('윙바디')) return '윙바디'
+  if (vehicle.includes('탑')) return '탑차'
+  if (vehicle.includes('카고')) return '카고'
+  return undefined
+}
+
+export function 차종대체근거(form: CallForm): 차종대체계산근거 {
+  const 적재형태 = 차종대체적재형태분류(form)
+  if (!적재형태) {
+    return { 적재형태: '미분류', 호환차종: [], 확대배율: 1, 냉장상한적용: false }
+  }
+
+  return {
+    적재형태,
+    호환차종: 차종대체호환차종[적재형태],
+    확대배율: Math.min(차종대체원배율[적재형태], 차종대체배율상한),
+    냉장상한적용: 적재형태 === '냉장',
+  }
+}
+
+export function 차종대체효과적용(scenario: ScenarioResult, form: CallForm, enabled: boolean): ScenarioResult {
   if (!enabled) return scenario
+
+  const { 확대배율 } = 차종대체근거(form)
+  const 로그배율 = Math.log(확대배율)
 
   return {
     ...scenario,
-    availableDrivers: Math.max(scenario.availableDrivers + 1, Math.round(scenario.availableDrivers * 1.2)),
-    estimatedFare: Math.round((scenario.estimatedFare * 0.97) / 1000) * 1000,
-    dispatchMinutes: Math.max(5, Math.round(scenario.dispatchMinutes * 0.88)),
-    failureProbability: Number(Math.max(0.001, scenario.failureProbability * 0.8).toFixed(3)),
+    // N' = N × m
+    availableDrivers: Math.round(scenario.availableDrivers * 확대배율),
+    // Δ = 지표별 탄력성 × ln(m)
+    estimatedFare: Math.max(0, Math.round(scenario.estimatedFare + 운임원_ln탄력성 * 로그배율)),
+    dispatchMinutes: Math.max(5, Math.round(scenario.dispatchMinutes + 배차분_ln탄력성 * 로그배율)),
+    failureProbability: Math.min(1, Math.max(0, scenario.failureProbability + 유찰률_ln탄력성 * 로그배율)),
   }
 }
 

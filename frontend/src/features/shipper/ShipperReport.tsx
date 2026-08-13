@@ -56,7 +56,7 @@ function AiInsightNote({ decision, facts }: { decision: DispatchDecision; facts:
 function AiSummary({ form, scenarios, options, decision }: ShipperReportProps) {
   const current = getCurrentScenario(form, scenarios)
   const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
-  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
+  const adjusted = 차종대체효과적용(baseAdjusted, form, options.allowVehicleSubstitution)
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '출발지 미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '도착지 미입력'}`
 
   const summary = decision === 'adjusted'
@@ -111,7 +111,7 @@ const 월간탄소 = 월간_탄소요약(completedOrderCarbonInputs)
 function ReportContent({ form, scenarios, modelMetadata, options, decision, compact = false }: ShipperReportProps & { compact?: boolean }) {
   const current = getCurrentScenario(form, scenarios)
   const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
-  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
+  const adjusted = 차종대체효과적용(baseAdjusted, form, options.allowVehicleSubstitution)
   const chosen = decision === 'adjusted' ? adjusted : current
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미입력'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미입력'}`
 

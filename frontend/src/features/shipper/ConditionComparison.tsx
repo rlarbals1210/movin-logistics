@@ -16,6 +16,8 @@ import {
   timeWindowDuration,
   시나리오_facts,
   차종대체계산출처,
+  차종대체근거,
+  차종대체표본근거,
   차종대체효과적용,
   유찰퍼센트,
 } from './shipperModel'
@@ -163,15 +165,20 @@ function ToggleRow({
   )
 }
 
-function VehicleSubstitutionEffect({ base, adjusted, active }: { base: ScenarioResult; adjusted: ScenarioResult; active: boolean }) {
+function VehicleSubstitutionEffect({ form, base, adjusted, active }: { form: CallForm; base: ScenarioResult; adjusted: ScenarioResult; active: boolean }) {
   if (!active) return null
+  const 근거 = 차종대체근거(form)
+  const 배율설명 = 근거.적재형태 === '미분류'
+    ? '근거 표에 없는 차종 · 확대 없음'
+    : `${근거.적재형태} 후보군 ×${근거.확대배율.toFixed(2)}${근거.냉장상한적용 ? ' (3.0 상한 적용)' : ''}`
 
   return (
     <div className="mt-sm rounded-lg bg-[#fff9cc] p-sm text-label-sm leading-5 text-on-surface" role="status">
       <strong className="block">차종 대체 반영값</strong>
       <span className="mt-xs block">차주 {base.availableDrivers}→{adjusted.availableDrivers}명 · 운임 {formatShortCurrency(base.estimatedFare)}→{formatShortCurrency(adjusted.estimatedFare)}</span>
       <span className="block">배차 {Math.round(base.dispatchMinutes)}→{Math.round(adjusted.dispatchMinutes)}분 · 유찰 {유찰퍼센트(base.failureProbability)}→{유찰퍼센트(adjusted.failureProbability)}%</span>
-      <small className="mt-xs block text-secondary">동일 톤급 호환 차종 확대 계산 · {차종대체계산출처}</small>
+      <small className="mt-xs block text-secondary">{배율설명}{근거.호환차종.length > 0 ? ` · 호환 ${근거.호환차종.join('·')}` : ''}</small>
+      <small className="block text-secondary">N′=N×m · Δ=계수×ln(m) · {차종대체표본근거}</small>
     </div>
   )
 }
@@ -271,7 +278,7 @@ function DecisionDialog({
   onDecision: (decision: Exclude<DispatchDecision, null>) => void
 }) {
   const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
-  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
+  const adjusted = 차종대체효과적용(baseAdjusted, form, options.allowVehicleSubstitution)
   const noChange = current.windowMinutes === baseAdjusted.windowMinutes && !options.allowVehicleSubstitution
   const minuteDelta = Math.abs(Math.round(adjusted.dispatchMinutes) - Math.round(current.dispatchMinutes))
 
@@ -316,10 +323,10 @@ function DecisionDialog({
 
             <ToggleRow
               label="차종 대체 허용"
-              description="동일 톤급 호환 차종까지 후보군을 넓혀 조정안 수치를 다시 계산합니다."
+              description="적재형태별 실측 확대 배율과 지표별 로그 탄력성으로 조정안 수치를 계산합니다."
               checked={options.allowVehicleSubstitution}
               onChange={(allowVehicleSubstitution) => onOptionsChange({ ...options, allowVehicleSubstitution })}
-              detail={<VehicleSubstitutionEffect base={baseAdjusted} adjusted={adjusted} active={options.allowVehicleSubstitution} />}
+              detail={<VehicleSubstitutionEffect form={form} base={baseAdjusted} adjusted={adjusted} active={options.allowVehicleSubstitution} />}
             />
             <ToggleRow
               label="상차일 하루 연기"
@@ -444,7 +451,7 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
   const selectedDuration = timeWindowDuration(form.loadingStartMinutes, form.loadingEndMinutes)
   const exactWindowMatch = windowOptions.includes(selectedDuration as ScenarioResult['windowMinutes'])
   const baseAdjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
-  const adjusted = 차종대체효과적용(baseAdjusted, options.allowVehicleSubstitution)
+  const adjusted = 차종대체효과적용(baseAdjusted, form, options.allowVehicleSubstitution)
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미선택'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미선택'}`
   const interpretation = useMemo(() => {
     const preference = current.failureProbability >= 0.3 ? '현재 시간창은 유찰 위험이 높은 편입니다.' : '현재 시간창은 유찰 위험이 비교적 낮습니다.'
@@ -534,10 +541,10 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
         <div className="space-y-md">
           <ToggleRow
             label="차종 대체 허용"
-            description="동일 톤급 호환 차종까지 후보군을 넓혀 조정안 수치를 다시 계산합니다."
+            description="적재형태별 실측 확대 배율과 지표별 로그 탄력성으로 조정안 수치를 계산합니다."
             checked={options.allowVehicleSubstitution}
             onChange={(allowVehicleSubstitution) => onOptionsChange({ ...options, allowVehicleSubstitution })}
-            detail={<VehicleSubstitutionEffect base={baseAdjusted} adjusted={adjusted} active={options.allowVehicleSubstitution} />}
+            detail={<VehicleSubstitutionEffect form={form} base={baseAdjusted} adjusted={adjusted} active={options.allowVehicleSubstitution} />}
           />
           <ToggleRow
             label="상차일 하루 연기"
