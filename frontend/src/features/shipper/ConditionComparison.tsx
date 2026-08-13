@@ -28,6 +28,20 @@ type ConditionComparisonProps = {
 
 type MetricKey = 'drivers' | 'fare' | 'dispatch' | 'failure'
 
+/**
+ * 유찰 확률(0~1) → 화면 표기용 백분율 숫자.
+ *
+ * 정수로 반올림하면 1.15% 와 0.53% 가 둘 다 "1%" 가 되어 시간창별 차이가
+ * 화면에서 사라진다. 1% 미만 구간이 실제로 쓰이므로 10% 미만은 소수 한 자리다.
+ *
+ * 화면(MetricCards)과 AI 설명(시나리오_facts)이 **같은 값을 써야** 하므로
+ * 여기 한 곳에 둔다.
+ */
+function 유찰퍼센트(확률: number): number {
+  const 퍼센트 = 확률 * 100
+  return 퍼센트 < 10 ? Number(퍼센트.toFixed(1)) : Math.round(퍼센트)
+}
+
 const metricDefinitions: Array<{
   key: MetricKey
   label: string
@@ -62,12 +76,7 @@ const metricDefinitions: Array<{
     key: 'failure',
     label: '유찰 확률',
     icon: 'warning',
-    // 정수로 반올림하면 1.15% 와 0.53% 가 둘 다 "1%" 가 되어 시간창별 차이가
-    // 화면에서 사라진다. 1% 미만 구간이 실제로 쓰이므로 소수 한 자리까지 보인다.
-    value: (scenario) => {
-      const 퍼센트 = scenario.failureProbability * 100
-      return `${퍼센트 < 10 ? 퍼센트.toFixed(1) : String(Math.round(퍼센트))}%`
-    },
+    value: (scenario) => `${유찰퍼센트(scenario.failureProbability)}%`,
     helper: () => '모델 추정 확률',
   },
 ]
@@ -376,25 +385,33 @@ function DecisionDialog({
  * 핸들러가 facts 에 없는 숫자를 응답에서 발견하면 통째로 버리도록 되어 있고,
  * 그 검사가 우리가 넣은 파생값까지 정답으로 인정해 버리면 검증이 헐거워진다.
  */
+/**
+ * 시나리오 한 건을 facts 로 바꾼다.
+ *
+ * **화면에 실제로 표시되는 값과 정확히 일치시킨다.** 원시값을 그대로 넘기면
+ * 모델이 "유찰 확률 0.011544" 처럼 말하는데 화면에는 "1.2%" 로 떠 있어 어긋난다.
+ * (실제 응답에서 확인했다 — 프롬프트에 백분율 규칙이 있어도 지켜지지 않았다)
+ *
+ * 키 이름에 단위를 박는 이유도 같다. 모델이 단위를 추측하지 않게 한다.
+ */
+function 시나리오_facts(scenario: ScenarioResult) {
+  return {
+    톤급: scenario.tonnage,
+    상차_시간창_분: scenario.windowMinutes,
+    수락가능_차주_명: scenario.availableDrivers,
+    예측_운임_원: scenario.estimatedFare,
+    // MetricCards 와 같은 반올림을 쓴다. 화면은 "48분" 인데 문장은 "47.88분"
+    // 이라고 말하는 일이 없어야 한다.
+    예측_배차_분: Math.round(scenario.dispatchMinutes),
+    유찰확률_퍼센트: 유찰퍼센트(scenario.failureProbability),
+  }
+}
+
 function InsightNote({ current, adjusted }: { current: ScenarioResult; adjusted: ScenarioResult }) {
   const facts = useMemo(
     () => ({
-      현재조건: {
-        톤급: current.tonnage,
-        시간창_분: current.windowMinutes,
-        수락가능차주: current.availableDrivers,
-        예측_운임: current.estimatedFare,
-        예측_배차분: current.dispatchMinutes,
-        유찰확률: current.failureProbability,
-      },
-      조정안: {
-        톤급: adjusted.tonnage,
-        시간창_분: adjusted.windowMinutes,
-        수락가능차주: adjusted.availableDrivers,
-        예측_운임: adjusted.estimatedFare,
-        예측_배차분: adjusted.dispatchMinutes,
-        유찰확률: adjusted.failureProbability,
-      },
+      현재조건: 시나리오_facts(current),
+      조정안: 시나리오_facts(adjusted),
     }),
     [current, adjusted],
   )
