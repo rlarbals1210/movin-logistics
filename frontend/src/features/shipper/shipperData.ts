@@ -50,16 +50,19 @@ export const scenarioResults: ScenarioResult[] = [
   { tonnage: 5, windowMinutes: 120, availableDrivers: 14, estimatedFare: 361000, dispatchMinutes: 62, failureProbability: 0.19 },
   { tonnage: 5, windowMinutes: 240, availableDrivers: 23, estimatedFare: 334000, dispatchMinutes: 88, failureProbability: 0.11 },
   { tonnage: 5, windowMinutes: 480, availableDrivers: 38, estimatedFare: 312000, dispatchMinutes: 121, failureProbability: 0.06 },
+  { tonnage: 5, windowMinutes: 720, availableDrivers: 43, estimatedFare: 309000, dispatchMinutes: 132, failureProbability: 0.053 },
   { tonnage: 5, windowMinutes: 1440, availableDrivers: 57, estimatedFare: 298000, dispatchMinutes: 164, failureProbability: 0.03 },
   { tonnage: 11, windowMinutes: 40, availableDrivers: 4, estimatedFare: 604000, dispatchMinutes: 41, failureProbability: 0.52 },
   { tonnage: 11, windowMinutes: 120, availableDrivers: 9, estimatedFare: 538000, dispatchMinutes: 73, failureProbability: 0.27 },
   { tonnage: 11, windowMinutes: 240, availableDrivers: 16, estimatedFare: 496000, dispatchMinutes: 102, failureProbability: 0.16 },
   { tonnage: 11, windowMinutes: 480, availableDrivers: 27, estimatedFare: 468000, dispatchMinutes: 139, failureProbability: 0.09 },
+  { tonnage: 11, windowMinutes: 720, availableDrivers: 31, estimatedFare: 462000, dispatchMinutes: 151, failureProbability: 0.078 },
   { tonnage: 11, windowMinutes: 1440, availableDrivers: 41, estimatedFare: 445000, dispatchMinutes: 187, failureProbability: 0.04 },
   { tonnage: 25, windowMinutes: 40, availableDrivers: 2, estimatedFare: 918000, dispatchMinutes: 56, failureProbability: 0.68 },
   { tonnage: 25, windowMinutes: 120, availableDrivers: 5, estimatedFare: 826000, dispatchMinutes: 94, failureProbability: 0.38 },
   { tonnage: 25, windowMinutes: 240, availableDrivers: 9, estimatedFare: 771000, dispatchMinutes: 128, failureProbability: 0.24 },
   { tonnage: 25, windowMinutes: 480, availableDrivers: 15, estimatedFare: 728000, dispatchMinutes: 173, failureProbability: 0.14 },
+  { tonnage: 25, windowMinutes: 720, availableDrivers: 17, estimatedFare: 720000, dispatchMinutes: 186, failureProbability: 0.123 },
   { tonnage: 25, windowMinutes: 1440, availableDrivers: 24, estimatedFare: 694000, dispatchMinutes: 226, failureProbability: 0.07 },
 ]
 
@@ -87,4 +90,4 @@ export const operationLogs: OperationLog[] = [
   { date: '08.05', title: '부산 강서 → 전남 광양', detail: '차종 대체 허용 · 계산 규칙 반영', status: '분석' },
 ]
 
-export const windowOptions: ScenarioResult['windowMinutes'][] = [40, 120, 240, 480, 1440]
+export const windowOptions: ScenarioResult['windowMinutes'][] = [40, 120, 240, 480, 720, 1440]

@@ -81,7 +81,7 @@ function ShipperProfile({ selections, form, modelMetadata, decision, onBackToMai
               ['분석 콜', `${shipperReportMetrics.analyzedCalls}건`],
               ['시간 제안', `${shipperReportMetrics.timeSuggestions}건`],
               ['학습 표본', `${modelMetadata.trainingRows.toLocaleString('ko-KR')}행`],
-              ['시나리오', '톤급×시간창 15개'],
+              ['시나리오', '톤급×시간창 18개'],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between border-b border-[#444] pb-sm last:border-0">
                 <dt className="text-body-md text-secondary-fixed-dim">{label}</dt>

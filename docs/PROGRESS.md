@@ -3,13 +3,13 @@
 ## 09:30 — 레포 초기 구조 (규민)
 
 - frontend: Vite + React 19 + TS + Tailwind v4(@tailwindcss/vite), 역할 전환 App.tsx 뼈대. `pnpm build` 통과.
-- 공통 기준 확정: `frontend/src/lib/types.ts` 동결 + `predictions.example.json`(화주_시나리오 15개 / 운송인_추천콜 3건 / 모델지표).
+- 공통 기준 확정: `frontend/src/lib/types.ts` + `predictions.example.json`(화주_시나리오 18개 / 운송인_추천콜 3건 / 모델지표).
 - backend: FastAPI `/health` 만 (로컬 200 확인). api/insights.ts 스텁, vercel.json, ai·design 폴더와 규칙 문서 배치.
 
 ## 10:05 — 백엔드 매칭 엔드포인트 (규민)
 
-- 만든 것: `POST /v1/matches/shipper`(시나리오 15개) · `GET /v1/matches/carrier/{id}`(추천콜 3건). 고정값은 `app/fixtures.py` 의 `FIXED_RESPONSE` 한 곳에. CORS 전체 허용, 요청 검증 느슨(extra="allow" · 전부 optional), 없는 값은 `모델버전: null`. 로컬 uvicorn 에서 `/health` 포함 3개 다 200.
-- 남은 것: 모델이 없어 요청값을 안 본다(톤급·시간창을 줘도 15개 격자를 통째로 반환). Railway 배포 반영 확인 미실시.
+- 만든 것: `POST /v1/matches/shipper`(시나리오 18개) · `GET /v1/matches/carrier/{id}`(추천콜 3건). 고정값은 `app/fixtures.py` 의 `FIXED_RESPONSE` 한 곳에. CORS 전체 허용, 요청 검증 느슨(extra="allow" · 전부 optional), 없는 값은 `모델버전: null`. 로컬 uvicorn 에서 `/health` 포함 3개 다 200.
+- 남은 것: 모델이 없어 요청값을 안 본다(톤급·시간창을 줘도 18개 격자를 통째로 반환). Railway 배포 반영 확인 미실시.
 - 다음: `/mv-lunch-a` 에서 추론을 붙이고 `FIXED_RESPONSE` 를 폴백으로 재사용.
 
 ## 11:19 — 운송인 화면 데이터 배선 F1 (규민)
@@ -62,5 +62,5 @@
 ## 11:53 — 화주 시나리오·모델지표 API 배선 (다현)
 
 - `useShipperScenarios`에서 `POST /v1/matches/shipper` 응답을 `toPredictions`로 변환해 화주 화면 전체에 주입했다.
-- API 실패·빈 응답·일부 조합 누락 시 기존 15개 시나리오 폴백을 유지하고, 수신 숫자는 보정 없이 그대로 표시한다.
+- API 실패·빈 응답·일부 조합 누락 시 기존 18개 시나리오 폴백을 유지하고, 수신 숫자는 보정 없이 그대로 표시한다.
 - 모델지표는 API의 실측값(수락 AUC 0.720 · 유찰 AUC 0.747 · 학습 9,324행)을 사용하며 출처 없는 신뢰도 표시는 제거했다.

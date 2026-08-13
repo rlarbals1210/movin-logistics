@@ -27,6 +27,7 @@ def test_health_and_catalog_contract() -> None:
     body = response.json()
     minutes = [option["minutes"] for option in body["timeWindows"]]
     assert minutes == sorted(set(minutes))
+    assert 720 in minutes
     assert len(minutes) <= 12
     assert body["selectionValid"] is True
     assert isinstance(body["matchedCallCount"], int)
@@ -37,7 +38,22 @@ def test_health_and_catalog_contract() -> None:
 def test_shipper_and_carrier_use_camel_case_units() -> None:
     shipper = client.post("/api/v1/matches/shipper", json={})
     assert shipper.status_code == 200
-    scenario = shipper.json()["shipperScenarios"][0]
+    scenarios = shipper.json()["shipperScenarios"]
+    assert len(scenarios) == 18
+    assert {(row["tonnage"], row["timeWindowMinutes"]) for row in scenarios} == {
+        (tonnage, window)
+        for tonnage in (5, 11, 25)
+        for window in (40, 120, 240, 480, 720, 1440)
+    }
+    twelve_hour = {row["tonnage"]: row for row in scenarios if row["timeWindowMinutes"] == 720}
+    assert twelve_hour[5]["availableDrivers"] == 1168
+    assert twelve_hour[5]["estimatedFareWon"] == 282311
+    assert twelve_hour[11]["availableDrivers"] == 467
+    assert twelve_hour[11]["estimatedFareWon"] == 499029
+    assert twelve_hour[25]["availableDrivers"] == 148
+    assert twelve_hour[25]["estimatedFareWon"] == 571820
+
+    scenario = scenarios[0]
     assert isinstance(scenario["estimatedFareWon"], int)
     assert 0 <= scenario["failureProbability"] <= 1
 

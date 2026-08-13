@@ -21,7 +21,7 @@ export type CallForm = {
 
 export type ScenarioResult = {
   tonnage: 5 | 11 | 25
-  windowMinutes: 40 | 120 | 240 | 480 | 1440
+  windowMinutes: 40 | 120 | 240 | 480 | 720 | 1440
   availableDrivers: number
   estimatedFare: number
   dispatchMinutes: number

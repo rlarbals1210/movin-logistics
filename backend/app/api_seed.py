@@ -710,7 +710,7 @@ def carrier_matches(
     return result
 
 
-CATALOG_TIME_WINDOWS = [40, 120, 240, 480, 1440]
+CATALOG_TIME_WINDOWS = [40, 120, 240, 480, 720, 1440]
 
 
 def catalog_options(region: str | None, subregion: str | None, time_windows: list[int]) -> dict[str, Any]:
