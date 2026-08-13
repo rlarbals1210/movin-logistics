@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { modelMetadata, windowOptions } from './shipperData'
+import { windowOptions } from './shipperData'
 import {
   addMinutesToTime,
   formatDate,
@@ -14,10 +14,12 @@ import {
   minutesToTime,
   timeWindowDuration,
 } from './shipperModel'
-import type { CallForm, ComparisonOptions, DispatchDecision, ScenarioResult } from './shipperTypes'
+import type { CallForm, ComparisonOptions, DispatchDecision, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
 type ConditionComparisonProps = {
   form: CallForm
+  scenarios: ScenarioResult[]
+  modelMetadata: ShipperModelMetadata
   options: ComparisonOptions
   onOptionsChange: (options: ComparisonOptions) => void
   onDecision: (decision: Exclude<DispatchDecision, null>) => void
@@ -226,6 +228,8 @@ function DeltaBars({ current, adjusted }: { current: ScenarioResult; adjusted: S
 function DecisionDialog({
   form,
   current,
+  scenarios,
+  modelMetadata,
   options,
   onOptionsChange,
   onClose,
@@ -233,12 +237,14 @@ function DecisionDialog({
 }: {
   form: CallForm
   current: ScenarioResult
+  scenarios: ScenarioResult[]
+  modelMetadata: ShipperModelMetadata
   options: ComparisonOptions
   onOptionsChange: (options: ComparisonOptions) => void
   onClose: () => void
   onDecision: (decision: Exclude<DispatchDecision, null>) => void
 }) {
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes)
+  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
   const noChange = current.windowMinutes === adjusted.windowMinutes
 
   return (
@@ -352,12 +358,12 @@ function DecisionDialog({
   )
 }
 
-function ConditionComparison({ form, options, onOptionsChange, onDecision }: ConditionComparisonProps) {
+function ConditionComparison({ form, scenarios, modelMetadata, options, onOptionsChange, onDecision }: ConditionComparisonProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const current = getCurrentScenario(form)
+  const current = getCurrentScenario(form, scenarios)
   const selectedDuration = timeWindowDuration(form.loadingStartMinutes, form.loadingEndMinutes)
   const exactWindowMatch = windowOptions.includes(selectedDuration as ScenarioResult['windowMinutes'])
-  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes)
+  const adjusted = getScenario(current.tonnage, options.relaxedWindowMinutes, scenarios)
   const route = `${getSelectedLocation(form.originRegion, form.originDetail, form.originCustom) || '미선택'} → ${getSelectedLocation(form.destinationRegion, form.destinationDetail, form.destinationCustom) || '미선택'}`
   const interpretation = useMemo(() => {
     const preference = current.failureProbability >= 0.3 ? '현재 시간창은 유찰 위험이 높은 편입니다.' : '현재 시간창은 유찰 위험이 비교적 낮습니다.'
@@ -398,10 +404,6 @@ function ConditionComparison({ form, options, onOptionsChange, onDecision }: Con
           <div>
             <h2 className="text-headline-sm font-black text-on-surface">현재 조건 예상 결과</h2>
             <p className="mt-xs text-body-md text-secondary">핵심 숫자를 먼저 보고, 아래에서 시간창과 근거를 확인하세요.</p>
-          </div>
-          <div className="flex items-center gap-sm text-label-sm text-secondary">
-            <span className="h-2 w-2 rounded-full bg-[#007a5a]" />
-            추정 신뢰도 {Math.round(modelMetadata.confidence * 100)}%
           </div>
         </div>
         <div className="mt-lg"><MetricCards scenario={current} /></div>
@@ -480,6 +482,8 @@ function ConditionComparison({ form, options, onOptionsChange, onDecision }: Con
         <DecisionDialog
           form={form}
           current={current}
+          scenarios={scenarios}
+          modelMetadata={modelMetadata}
           options={options}
           onOptionsChange={onOptionsChange}
           onClose={() => setDialogOpen(false)}

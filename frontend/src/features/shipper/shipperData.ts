@@ -1,4 +1,4 @@
-import type { OperationLog, ScenarioResult } from './shipperTypes'
+import type { OperationLog, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
 export const regionGroups = [
   {
@@ -63,12 +63,11 @@ export const scenarioResults: ScenarioResult[] = [
   { tonnage: 25, windowMinutes: 1440, availableDrivers: 24, estimatedFare: 694000, dispatchMinutes: 226, failureProbability: 0.07 },
 ]
 
-export const modelMetadata = {
+export const modelMetadata: ShipperModelMetadata = {
   scenarioRows: scenarioResults.length,
-  trainingRows: 218473,
-  acceptanceAuc: 0.842,
-  failureAuc: 0.791,
-  confidence: 0.78,
+  trainingRows: 9324,
+  acceptanceAuc: 0.72,
+  failureAuc: 0.747,
 }
 
 export const shipperReportMetrics = {

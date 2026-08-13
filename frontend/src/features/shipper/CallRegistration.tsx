@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { cargoOptions, modelMetadata, regionGroups, vehicleOptions } from './shipperData'
+import { cargoOptions, regionGroups, vehicleOptions } from './shipperData'
 import {
   callFieldCompletion,
   formatDate,
@@ -9,10 +9,11 @@ import {
   minutesToTime,
   timeWindowDuration,
 } from './shipperModel'
-import type { CallForm } from './shipperTypes'
+import type { CallForm, ShipperModelMetadata } from './shipperTypes'
 
 type CallRegistrationProps = {
   form: CallForm
+  modelMetadata: ShipperModelMetadata
   preferencesSaved: boolean
   onChange: (next: CallForm) => void
   onContinue: () => void
@@ -404,7 +405,7 @@ function RouteSummary({ form }: { form: CallForm }) {
   )
 }
 
-function CallRegistration({ form, preferencesSaved, onChange, onContinue }: CallRegistrationProps) {
+function CallRegistration({ form, modelMetadata, preferencesSaved, onChange, onContinue }: CallRegistrationProps) {
   const completion = callFieldCompletion(form)
   const canContinue = completion === 6
   const update = <K extends keyof CallForm>(key: K, value: CallForm[K]) => onChange({ ...form, [key]: value })

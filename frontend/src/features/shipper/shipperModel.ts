@@ -64,13 +64,19 @@ export function nearestWindow(minutes: number): ScenarioResult['windowMinutes'] 
   ))
 }
 
-export function getScenario(tonnage: ScenarioResult['tonnage'], windowMinutes: ScenarioResult['windowMinutes']) {
-  return scenarioResults.find((result) => result.tonnage === tonnage && result.windowMinutes === windowMinutes) ?? scenarioResults[0]
+export function getScenario(
+  tonnage: ScenarioResult['tonnage'],
+  windowMinutes: ScenarioResult['windowMinutes'],
+  scenarios: ScenarioResult[] = scenarioResults,
+) {
+  return scenarios.find((result) => result.tonnage === tonnage && result.windowMinutes === windowMinutes)
+    ?? scenarioResults.find((result) => result.tonnage === tonnage && result.windowMinutes === windowMinutes)
+    ?? scenarioResults[0]
 }
 
-export function getCurrentScenario(form: CallForm) {
+export function getCurrentScenario(form: CallForm, scenarios: ScenarioResult[] = scenarioResults) {
   const duration = timeWindowDuration(form.loadingStartMinutes, form.loadingEndMinutes)
-  return getScenario(resolveTonnage(form), nearestWindow(duration))
+  return getScenario(resolveTonnage(form), nearestWindow(duration), scenarios)
 }
 
 export function getNextRelaxedWindow(current: ScenarioResult['windowMinutes']) {
