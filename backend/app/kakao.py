@@ -1,9 +1,13 @@
 """
 Kakao 지오코딩·길찾기 클라이언트.
 
-`KAKAOMAP_API_KEY` 가 없거나 API 가 실패해도 예외를 던지지 않는다 — 이 레포
+`KAKAOMAP_REST_API_KEY` 가 없거나 API 가 실패해도 예외를 던지지 않는다 — 이 레포
 전체의 방침("모델이 죽어도 데모는 산다")과 같다. 실패하면 호출부가 기존
 고정값을 그대로 쓴다.
+
+반드시 **REST API 키**여야 한다. Kakao 콘솔은 앱 하나에 JavaScript 키·REST API
+키·Admin 키를 따로 발급하는데, JavaScript 키로 서버에서 직접 호출하면
+"KA Header is required..." 401 이 난다(브라우저 Origin 검증용 키라서다).
 
 주소→좌표는 프로세스 메모리에 캐싱한다. 같은 출발지/도착지 문자열이 여러
 콜에 반복 등장하고, 요청마다 다시 지오코딩할 이유가 없다. 실거리(길찾기)는
@@ -25,7 +29,7 @@ _geocode_cache: dict[str, tuple[float, float] | None] = {}
 
 
 def _api_key() -> str | None:
-    key = os.getenv("KAKAOMAP_API_KEY", "").strip()
+    key = os.getenv("KAKAOMAP_REST_API_KEY", "").strip()
     return key or None
 
 
