@@ -31,7 +31,6 @@ const 운송인ID = 'C-01'
 const 원 = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`
 
 type IconName =
-  | 'menu'
   | 'back'
   | 'bell'
   | 'headset'
@@ -45,7 +44,6 @@ type IconName =
   | 'info'
   | 'check'
   | 'route'
-  | 'close'
   | 'filter'
   | 'chart'
 
@@ -64,7 +62,6 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 
   const path = (() => {
     switch (name) {
-      case 'menu': return <><path d="M4 7h16M4 12h16M4 17h16" /></>
       case 'back': return <><path d="m15 18-6-6 6-6" /></>
       case 'bell': return <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>
       case 'headset': return <><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><path d="M4 14h3v6H5a1 1 0 0 1-1-1v-5ZM20 14h-3v6h2a1 1 0 0 0 1-1v-5Z" /></>
@@ -78,7 +75,6 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
       case 'info': return <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>
       case 'check': return <><path d="m5 12 4 4L19 6" /></>
       case 'route': return <><circle cx="6" cy="18" r="2" /><circle cx="18" cy="6" r="2" /><path d="M8 18h2a3 3 0 0 0 3-3 3 3 0 0 1 3-3h2M6 16V8a2 2 0 0 1 2-2h8" /></>
-      case 'close': return <><path d="m6 6 12 12M18 6 6 18" /></>
       case 'filter': return <><path d="M4 6h16M7 12h10M10 18h4" /></>
       case 'chart': return <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>
     }
@@ -90,22 +86,20 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 function AppHeader({
   단계,
   onBack,
-  onMenu,
   onNotice,
   onHelp,
 }: {
   단계: number
   onBack: () => void
-  onMenu: () => void
   onNotice: () => void
   onHelp: () => void
 }) {
   return (
     <header className="carrier-header">
       <div className="carrier-appbar">
-        <button type="button" className="carrier-icon-button" onClick={단계 === 0 ? onMenu : onBack} aria-label={단계 === 0 ? '메뉴 열기' : '이전 화면'}>
-          <Icon name={단계 === 0 ? 'menu' : 'back'} />
-        </button>
+        {단계 === 0
+          ? <span className="carrier-appbar-spacer" aria-hidden="true" />
+          : <button type="button" className="carrier-icon-button" onClick={onBack} aria-label="이전 화면"><Icon name="back" /></button>}
         <strong className="carrier-brand">Mov!n <span>운송인</span></strong>
         <div className="carrier-appbar-actions">
           <button type="button" className="carrier-icon-button" onClick={onNotice} aria-label="알림"><Icon name="bell" size={20} /></button>
@@ -555,19 +549,6 @@ function ReportScreen({ calls }: { calls: 계산후보[] }) {
   )
 }
 
-function MenuDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  if (!open) return null
-  return (
-    <div className="carrier-drawer-layer" role="presentation" onClick={onClose}>
-      <aside className="carrier-drawer" role="dialog" aria-modal="true" aria-label="운송인 메뉴" onClick={(event) => event.stopPropagation()}>
-        <div className="carrier-drawer-head"><strong>Mov!n 운송인</strong><button type="button" onClick={onClose} aria-label="메뉴 닫기"><Icon name="close" /></button></div>
-        <div className="carrier-drawer-profile"><span><Icon name="user" /></span><div><strong>운송인</strong><small>5톤 카고 · 수도권 기반</small></div></div>
-        <nav><button type="button" onClick={onClose}>운행 홈</button><button type="button" onClick={onClose}>내 차량 정보</button><button type="button" onClick={onClose}>고객센터</button><a href="/shipper">화주/주선사 화면으로 전환</a></nav>
-      </aside>
-    </div>
-  )
-}
-
 function CarrierScreen() {
   const [단계, set단계] = useState(0)
   const [확장오더, set확장오더] = useState(등록화물_목록[1]?.id ?? '')
@@ -583,7 +564,6 @@ function CarrierScreen() {
   const [후속콜수, set후속콜수] = useState(0)
   const [운행진행률, set운행진행률] = useState(0)
   const [운행알림열림, set운행알림열림] = useState(false)
-  const [메뉴열림, set메뉴열림] = useState(false)
   const [안내, set안내] = useState('')
   const [새로고침시각, set새로고침시각] = useState('방금 전')
   const [추천알림열림, set추천알림열림] = useState(false)
@@ -701,7 +681,7 @@ function CarrierScreen() {
     set선호조건(빈선호조건); set매칭쿼리(''); set후속쿼리(''); set선택콜ID('')
     set현재콜(undefined); set완료콜([]); set후속콜수(0); set운행진행률(0); set운행알림열림(false)
     set추천알림열림(false); set확정중(false); set확정콜ID(''); set실패피드백(null); set여정ID(crypto.randomUUID())
-    set메뉴열림(false); set안내(''); set새로고침시각('방금 전'); 확정잠금.current = false
+    set안내(''); set새로고침시각('방금 전'); 확정잠금.current = false
   }
 
   const 추천알림열기 = () => {
@@ -813,25 +793,30 @@ function CarrierScreen() {
 
   return (
     <div className="carrier-page">
-      <div className="carrier-mobile-shell">
-        <div className="carrier-app">
-          <AppHeader 단계={단계} onBack={이전} onMenu={() => set메뉴열림(true)} onNotice={() => showNotice('새 알림이 없습니다.')} onHelp={() => showNotice('고객센터 연결을 준비하고 있어요.')} />
-          <main key={단계} ref={보드컨텐츠} className="carrier-content carrier-step-in" onScroll={오더게시판스크롤}>
-            {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
-            {단계 === 1 && <ProfileScreen />}
-            {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
-            {단계 === 3 && <OrderBoardScreen candidates={후보} loading={초기매칭.상태 === 'loading'} preferences={선호조건} source={초기매칭.출처} matchQuery={매칭쿼리} errorMessage={초기매칭.오류메시지} onRetry={초기매칭.재시도} />}
-            {단계 === 4 && <CompareScreen candidates={후보} selectedId={선택콜ID} onSelect={set선택콜ID} locked={Boolean(확정콜ID)} />}
-            {단계 === 5 && <RouteScreen candidate={현재콜} progress={운행진행률} />}
-            {단계 === 6 && <BackhaulScreen candidate={후속후보[0]} loading={후속매칭.상태 === 'loading'} source={후속매칭.출처} errorMessage={후속매칭.오류메시지} deciding={확정중} onRetry={후속매칭.재시도} onAccept={복화수락} onHome={집으로돌아가기} />}
-            {단계 === 7 && <ReportScreen calls={완료콜} />}
-          </main>
-          {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} pending={단계 === 4 && 확정중} />}
-          {단계 === 3 && 추천알림열림 && <CandidateNotification count={Math.min(3, 후보.length)} onOpen={추천알림열기} />}
-          {단계 === 5 && 운행알림열림 && <CandidateNotification count={후속콜수 >= 2 ? 완료콜.length + 1 : Math.max(1, 후속후보.length)} onOpen={운행알림열기} />}
-          {안내 && <div className="carrier-toast" role="status"><span>{안내}</span>{실패피드백 && <button type="button" onClick={피드백재시도}>다시 시도</button>}</div>}
-          <MenuDrawer open={메뉴열림} onClose={() => set메뉴열림(false)} />
+      <div className="carrier-device-layout">
+        <div className="carrier-mobile-shell">
+          <div className="carrier-app">
+            <AppHeader 단계={단계} onBack={이전} onNotice={() => showNotice('새 알림이 없습니다.')} onHelp={() => showNotice('고객센터 연결을 준비하고 있어요.')} />
+            <main key={단계} ref={보드컨텐츠} className="carrier-content carrier-step-in" onScroll={오더게시판스크롤}>
+              {단계 === 0 && <StartScreen expandedOrder={확장오더} onToggleOrder={(id) => set확장오더((current) => current === id ? '' : id)} profileOpen={프로필열림} onToggleProfile={() => set프로필열림((open) => !open)} refreshedAt={새로고침시각} onRefresh={() => { set새로고침시각('방금 전'); showNotice('최신 오더를 확인했어요.') }} />}
+              {단계 === 1 && <ProfileScreen />}
+              {단계 === 2 && <PreferencesScreen value={선호조건} onChange={set선호조건} />}
+              {단계 === 3 && <OrderBoardScreen candidates={후보} loading={초기매칭.상태 === 'loading'} preferences={선호조건} source={초기매칭.출처} matchQuery={매칭쿼리} errorMessage={초기매칭.오류메시지} onRetry={초기매칭.재시도} />}
+              {단계 === 4 && <CompareScreen candidates={후보} selectedId={선택콜ID} onSelect={set선택콜ID} locked={Boolean(확정콜ID)} />}
+              {단계 === 5 && <RouteScreen candidate={현재콜} progress={운행진행률} />}
+              {단계 === 6 && <BackhaulScreen candidate={후속후보[0]} loading={후속매칭.상태 === 'loading'} source={후속매칭.출처} errorMessage={후속매칭.오류메시지} deciding={확정중} onRetry={후속매칭.재시도} onAccept={복화수락} onHome={집으로돌아가기} />}
+              {단계 === 7 && <ReportScreen calls={완료콜} />}
+            </main>
+            {action && <StickyAction label={action.label} disabled={action.disabled} helper={action.helper} onClick={actionClick} pending={단계 === 4 && 확정중} />}
+            {단계 === 3 && 추천알림열림 && <CandidateNotification count={Math.min(3, 후보.length)} onOpen={추천알림열기} />}
+            {단계 === 5 && 운행알림열림 && <CandidateNotification count={후속콜수 >= 2 ? 완료콜.length + 1 : Math.max(1, 후속후보.length)} onOpen={운행알림열기} />}
+            {안내 && <div className="carrier-toast" role="status"><span>{안내}</span>{실패피드백 && <button type="button" onClick={피드백재시도}>다시 시도</button>}</div>}
+          </div>
         </div>
+        <a className="carrier-shipper-switch" href="/shipper">
+          화주 화면으로 이동
+          <Icon name="chevron" size={18} />
+        </a>
       </div>
     </div>
   )
