@@ -1,12 +1,36 @@
 """
-고정 응답.
+응답 데이터.
 
-frontend/src/data/predictions.example.json 과 같은 구조·같은 키 이름이다.
-점심(/mv-lunch-a)에 모델 추론을 붙일 때 이 상수를 폴백으로 그대로 재사용한다.
+`FIXED_RESPONSE` 는 `frontend/src/data/predictions.example.json` 과 같은 구조·같은 키
+이름이다. 점심(/mv-lunch-a)에 모델 추론을 붙일 때 이 상수를 폴백으로 그대로 재사용한다.
 모델이 죽거나 로드에 실패하면 여기로 떨어져서 데모는 산다.
+
+기동 시 `frontend/src/data/predictions.json`(ai 산출물)을 읽어 **키별로 선택 병합**한다.
+통째로 갈아끼우지 않는 이유가 있다 — 아래 표의 세 번째 행이 핵심이다.
+
+    화주_시나리오   predictions.json   실제 모델 출력. 15조합이 다 들어 있다
+    모델지표        predictions.json   양쪽 값이 이미 같다(0.720 / 0.747 / 9,324)
+    운송인_추천콜   FIXED_RESPONSE     predictions.json 에 공차거리km·복화가능성이 없다
+
+`운송인_추천콜` 을 교체하면 그 두 필드가 0 으로 떨어진다. 프론트의 `확장필드()` 가
+없는 값을 0 으로 채우므로 **크래시 없이 조용히 틀린 화면**이 뜬다. 공차가 0 이면
+유류비 공차분과 공차 이동시간이 사라지고, 그러면 표면운임·실수령·시간당 세 순위가
+전부 같아진다 — 운송인 데모의 유일한 메시지("표면 운임 1위가 시간당으로는 꼴찌")가
+통째로 없어진다. ai 쪽에서 두 필드를 채워주면 그때 이 행도 predictions.json 으로 옮긴다.
 """
 
+import hashlib
+import json
+from pathlib import Path
 from typing import Any
+
+# backend/app/fixtures.py → 레포 루트
+_PREDICTIONS_PATH = Path(__file__).resolve().parents[2] / "frontend" / "src" / "data" / "predictions.json"
+
+_톤급_목록 = (5, 11, 25)
+_시간창_목록 = (40, 120, 240, 480, 1440)
+_시나리오_키 = ("톤급", "시간창_분", "수락가능차주", "예측_운임", "예측_배차분", "유찰확률")
+_지표_키 = ("수락예측_AUC", "유찰예측_AUC", "학습행수")
 
 FIXED_RESPONSE: dict[str, Any] = {
     "화주_시나리오": [
@@ -82,3 +106,76 @@ FIXED_RESPONSE: dict[str, Any] = {
         "학습행수": 9324,
     },
 }
+
+
+def _숫자인가(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _유효한_시나리오(값: Any) -> bool:
+    """
+    15조합이 빠짐없이 들어 있고 필드가 전부 숫자여야 통과다.
+
+    느슨하게 받아서 반쪽짜리를 서빙하느니 폴백이 낫다. 화면 격자가 3 x 5 로
+    고정돼 있어서 한 칸이라도 비면 그 자리가 빈 채로 발표에 나간다.
+    """
+    if not isinstance(값, list) or len(값) != len(_톤급_목록) * len(_시간창_목록):
+        return False
+
+    조합: set[tuple[int, int]] = set()
+    for 행 in 값:
+        if not isinstance(행, dict) or any(not _숫자인가(행.get(k)) for k in _시나리오_키):
+            return False
+        톤, 창 = 행["톤급"], 행["시간창_분"]
+        if 톤 not in _톤급_목록 or 창 not in _시간창_목록:
+            return False
+        조합.add((톤, 창))
+
+    return len(조합) == len(_톤급_목록) * len(_시간창_목록)
+
+
+def _유효한_지표(값: Any) -> bool:
+    return isinstance(값, dict) and all(_숫자인가(값.get(k)) for k in _지표_키)
+
+
+def _로드() -> tuple[dict[str, Any], str | None, dict[str, str]]:
+    """
+    (응답, 모델버전, 출처) 를 돌려준다.
+
+    어떤 이유로든 실패하면 FIXED_RESPONSE 그대로다. 예외를 밖으로 던지지 않는다 —
+    데이터 파일 하나 때문에 서버가 안 뜨는 것이 가장 나쁜 결과다.
+    """
+    응답 = {k: v for k, v in FIXED_RESPONSE.items()}
+    출처 = {"화주_시나리오": "fixture", "운송인_추천콜": "fixture", "모델지표": "fixture"}
+
+    try:
+        원문 = _PREDICTIONS_PATH.read_bytes()
+        데이터 = json.loads(원문)
+    except (OSError, ValueError):
+        return 응답, None, 출처
+
+    if not isinstance(데이터, dict):
+        return 응답, None, 출처
+
+    갱신됨 = False
+
+    if _유효한_시나리오(데이터.get("화주_시나리오")):
+        응답["화주_시나리오"] = 데이터["화주_시나리오"]
+        출처["화주_시나리오"] = "model"
+        갱신됨 = True
+
+    if _유효한_지표(데이터.get("모델지표")):
+        응답["모델지표"] = 데이터["모델지표"]
+        출처["모델지표"] = "model"
+        갱신됨 = True
+
+    # 운송인_추천콜 은 일부러 건드리지 않는다. 모듈 상단 주석 참고.
+
+    if not 갱신됨:
+        return 응답, None, 출처
+
+    모델버전 = f"predictions.json@{hashlib.sha256(원문).hexdigest()[:8]}"
+    return 응답, 모델버전, 출처
+
+
+RESPONSE, MODEL_VERSION, SOURCES = _로드()

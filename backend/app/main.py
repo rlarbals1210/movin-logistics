@@ -4,7 +4,7 @@ from fastapi import Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 
-from app.fixtures import FIXED_RESPONSE
+from app.fixtures import MODEL_VERSION, RESPONSE, SOURCES
 
 app = FastAPI(title="MOVIN API")
 
@@ -86,10 +86,14 @@ def match_shipper(req: ShipperMatchRequest = Body(default_factory=ShipperMatchRe
     점심에 모델을 붙이면 여기서 req 를 실제로 쓴다.
     """
     return {
-        "화주_시나리오": FIXED_RESPONSE["화주_시나리오"],
-        "모델지표": FIXED_RESPONSE["모델지표"],
-        # 아직 모델이 없다. 0 이 아니라 null 이다.
-        "모델버전": None,
+        "화주_시나리오": RESPONSE["화주_시나리오"],
+        "모델지표": RESPONSE["모델지표"],
+        # 파일을 못 읽었으면 None 이다. 0 이나 빈 문자열로 얼버무리지 않는다 —
+        # "모델 붙었나" 를 이 값 하나로 판별한다.
+        "모델버전": MODEL_VERSION,
+        # 어느 키가 모델 출력이고 어느 키가 고정값인지 응답에 남긴다.
+        # 발표에서 "이건 모델이 낸 숫자냐" 를 물으면 여기를 보면 된다.
+        "출처": SOURCES,
     }
 
 
@@ -103,7 +107,10 @@ def match_carrier(carrier_id: str) -> dict[str, Any]:
     """
     return {
         "운송인ID": carrier_id,
-        "운송인_추천콜": FIXED_RESPONSE["운송인_추천콜"],
-        "모델지표": FIXED_RESPONSE["모델지표"],
-        "모델버전": None,
+        # 주의: 이 목록만은 여전히 고정값이다. predictions.json 에 공차거리km ·
+        # 복화가능성이 없어서 교체하면 실수령 비교가 무너진다(fixtures.py 상단 주석).
+        "운송인_추천콜": RESPONSE["운송인_추천콜"],
+        "모델지표": RESPONSE["모델지표"],
+        "모델버전": MODEL_VERSION,
+        "출처": SOURCES,
     }
