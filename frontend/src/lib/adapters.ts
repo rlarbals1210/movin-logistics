@@ -1,8 +1,17 @@
 /**
  * API 응답 → 화면 타입 변환.
  *
- * 아직 빈 껍데기다. 백엔드(/mv-backend)가 응답 형태를 확정하면
- * 여기서만 고쳐 쓴다 — 화면 컴포넌트는 types.ts 만 보게 유지한다.
+ * 필드명이 흔들려도 화면을 안 건드리게 하는 것이 이 모듈의 목적이다.
+ * ai 산출물의 키 이름이 이미 두 번 바뀌었고(`시간창(분)` → `상차 시간창(분)`),
+ * `types.ts` 는 09:30 에 동결됐다. 그 간극을 여기서 흡수한다.
+ *
+ * 진입점은 둘이다.
+ *   toCarrierCalls  GET  /v1/matches/carrier/{id}  → 운송인추천콜[]
+ *   toPredictions   POST /v1/matches/shipper       → Predictions
+ *
+ * 화주 시나리오는 `toPredictions(raw).화주_시나리오` 로 꺼낸다. 전용 함수를 두지
+ * 않는다 — 빈 배열을 조용히 돌려주는 스텁이 있으면 누군가 그걸 배선하고
+ * 격자가 빈 채로 발표에 나간다.
  */
 import type { Predictions, 모델지표, 시간창분, 운송인추천콜, 톤급, 화주시나리오 } from './types'
 
@@ -20,12 +29,6 @@ export function toCarrierCalls(raw: unknown): 운송인추천콜[] {
     .filter((c): c is 운송인추천콜 => c !== undefined)
 
   return 목록.length > 0 ? 목록 : 예시_추천콜
-}
-
-/** 백엔드 매칭 응답 → 화주 시나리오 목록 */
-export function toShipperScenarios(_raw: unknown): 화주시나리오[] {
-  // TODO(/mv-backend 이후): 실제 응답 필드 매핑
-  return []
 }
 
 const 톤급_목록: readonly 톤급[] = [5, 11, 25]
