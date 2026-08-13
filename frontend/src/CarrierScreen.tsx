@@ -345,7 +345,7 @@ function OrderBoardScreen({ candidates, loading, preferences, source, matchQuery
     <div className="carrier-screen carrier-board-screen" data-match-query={matchQuery}>
       <h1>조건에 맞는 오더를<br />찾았어요</h1>
       <div className="carrier-active-filter"><Icon name="filter" size={17} /><span>{preferences.권역} · {preferences.세부지역}</span><span>{preferences.선호시간.join(', ')}</span></div>
-      <div className="carrier-section-heading"><div><h2>오더 게시판</h2><small>실수령과 공차거리까지 반영</small></div><strong>{candidates.length}건</strong></div>
+      <div className="carrier-section-heading"><div><h2>오더 게시판</h2><small>순수익과 공차거리까지 반영</small></div><strong>{candidates.length}건</strong></div>
       {loading ? <CallsLoading /> : (
         <div className="carrier-board-list">
           {candidates.map(({ 콜, 분해 }, index) => (
@@ -367,7 +367,7 @@ function CandidateNotification({ count, onOpen }: { count: number; onOpen: () =>
   return (
     <button type="button" className="carrier-candidate-alert" onClick={onOpen} aria-label={`추천 후보 ${count}개 비교하기`}>
       <span className="carrier-alert-icon"><Icon name="bell" size={20} /></span>
-      <span><strong>추천 후보 {count}개가 도착했어요</strong><small>눌러서 예상 실수령을 비교해 보세요.</small></span>
+      <span><strong>추천 후보 {count}개가 도착했어요</strong><small>눌러서 예상 순수익을 비교해 보세요.</small></span>
       <Icon name="chevron" size={18} />
     </button>
   )
@@ -391,7 +391,7 @@ function 규칙기반비교설명(recommended: 계산후보, selected: 계산후
   const timeDelta = selected.분해.총소요_h - recommended.분해.총소요_h
   const netText = netDelta === 0 ? '같고' : `${원(Math.abs(netDelta))} ${netDelta > 0 ? '많고' : '적고'}`
   const timeText = Math.abs(timeDelta) < 0.05 ? '같습니다' : `${Math.abs(timeDelta).toFixed(1)}시간 ${timeDelta > 0 ? '깁니다' : '짧습니다'}`
-  return `선택한 후보는 추천 1순위보다 예상 실수령이 ${netText}, 운행시간은 ${timeText}. 실수령과 운행시간의 차이를 함께 비교한 값입니다.`
+  return `선택한 후보는 추천 1순위보다 예상 순수익이 ${netText}, 운행시간은 ${timeText}. 순수익과 운행시간의 차이를 함께 비교한 값입니다.`
 }
 
 function CompareScreen({
@@ -418,9 +418,9 @@ function CompareScreen({
     { label: '시간당 순수익', value: selected.분해.시간당_실수령 - recommended.분해.시간당_실수령, unit: '원' },
   ] : []
   const insightFacts = recommended && selected ? {
-    추천1순위: { 예상실수령_원: recommended.분해.실수령, 운행시간_h: recommended.분해.총소요_h },
-    선택후보: { 예상실수령_원: selected.분해.실수령, 운행시간_h: selected.분해.총소요_h },
-    차이: { 예상실수령_원: selected.분해.실수령 - recommended.분해.실수령, 운행시간_h: Number((selected.분해.총소요_h - recommended.분해.총소요_h).toFixed(1)) },
+    추천1순위: { 예상순수익_원: recommended.분해.실수령, 운행시간_h: recommended.분해.총소요_h },
+    선택후보: { 예상순수익_원: selected.분해.실수령, 운행시간_h: selected.분해.총소요_h },
+    차이: { 예상순수익_원: selected.분해.실수령 - recommended.분해.실수령, 운행시간_h: Number((selected.분해.총소요_h - recommended.분해.총소요_h).toFixed(1)) },
   } : {}
   const { text: insightText, 로딩중: insightLoading } = useInsight('CARRIER', insightFacts, isAlternative)
   const aiHasDirective = /(선택하|추천하|확정하|결정하|고르세요|택하세요)/.test(insightText)
@@ -440,7 +440,7 @@ function CompareScreen({
             <button key={콜.콜ID} type="button" role="radio" aria-checked={selected} disabled={locked} onClick={() => onSelect(콜.콜ID)} className={`carrier-candidate-card ${selected ? 'is-selected' : ''}`}>
               <span className="carrier-candidate-rank">{index + 1}</span>
               <div className="carrier-candidate-copy">
-                <div className="carrier-recommendation-state"><small>{index === 0 ? '기본 추천' : '비교 후보'}</small><b>{index === 0 ? '추천' : '추천 아님'}</b></div>
+                <div className="carrier-recommendation-state"><small>{index === 0 ? '기본 추천' : '비교 후보'}</small><b>{index === 0 ? '추천 1순위' : `${index + 1}순위`}</b></div>
                 <h2>{콜.출발지.split(' ').slice(0, 2).join(' ')} <span>→</span> {콜.도착지.split(' ').slice(0, 2).join(' ')}</h2>
                 <p className="carrier-pickup-time"><Icon name="clock" size={14} /> 상차 {콜.상차시각}</p>
                 <div className="carrier-candidate-metrics">
@@ -449,7 +449,7 @@ function CompareScreen({
                   <span><small>운임</small><strong>{원(콜.예측_운임)}</strong></span>
                   <span><small>유류비</small><strong>−{원(분해.유류비_적재)}</strong></span>
                   <span><small>공차비</small><strong>−{원(분해.유류비_공차)}</strong></span>
-                  <span className="is-net"><small>예상 실수령</small><strong>{원(분해.실수령)}</strong></span>
+                  <span className="is-net"><small>예상 순수익</small><strong>{원(분해.실수령)}</strong></span>
                 </div>
                 <div className="carrier-candidate-labels">
                   {display.tags.map((tag) => <span key={tag} className="is-tag">{tag}</span>)}
@@ -469,7 +469,7 @@ function CompareScreen({
           </div>
           <div className="carrier-ai-explanation">
             <strong>AI 비교 설명</strong>
-            {insightLoading && !safeInsightText ? <p className="is-loading">실수령과 운행시간을 비교하고 있어요.</p> : <p>{comparisonText}</p>}
+            {insightLoading && !safeInsightText ? <p className="is-loading">순수익과 운행시간을 비교하고 있어요.</p> : <p>{comparisonText}</p>}
             {!insightLoading && !safeInsightText && <small>규칙 기반 설명</small>}
           </div>
         </section>
@@ -497,7 +497,7 @@ function RouteScreen({ candidate, progress }: { candidate?: 계산후보; progre
         <div><span className="timeline-dot pickup" /><small>상차</small><strong>{콜.출발지}</strong><b>+ {콜.공차거리km.toLocaleString('ko-KR')}km</b></div>
         <div><span className="timeline-dot dropoff" /><small>하차</small><strong>{콜.도착지}</strong><b>+ {콜.거리km.toLocaleString('ko-KR')}km</b></div>
       </div>
-      <div className="carrier-route-metrics"><span><Icon name="clock" size={19} /><small>예상 소요</small><strong>{분해.총소요_h.toFixed(1)}시간</strong></span><span><Icon name="won" size={19} /><small>예상 실수령</small><strong>{원(분해.실수령)}</strong></span></div>
+      <div className="carrier-route-metrics"><span><Icon name="clock" size={19} /><small>예상 소요</small><strong>{분해.총소요_h.toFixed(1)}시간</strong></span><span><Icon name="won" size={19} /><small>예상 순수익</small><strong>{원(분해.실수령)}</strong></span></div>
     </div>
   )
 }
@@ -506,13 +506,13 @@ function BackhaulScreen({ candidate, loading, source, errorMessage, deciding, on
   return (
     <div className="carrier-screen carrier-backhaul-screen">
       <h1>현재 위치 기준<br />다음 추천 콜</h1>
-      <p className="carrier-lead">완료한 콜과 같은 callId·노선은 제외했어요.</p>
+      <p className="carrier-lead">방금 완료한 콜과 같은 콜, 같은 노선(출발지→도착지)은 다시 추천하지 않았어요.</p>
       {loading ? <CallsLoading /> : candidate ? (
         <article className="carrier-next-call-card">
           <small>다음 추천</small>
           <h2>{candidate.콜.출발지.split(' ').slice(0, 2).join(' ')} → {candidate.콜.도착지.split(' ').slice(0, 2).join(' ')}</h2>
           <p>상차 {candidate.콜.상차시각} · 공차 {candidate.콜.공차거리km}km · {(candidate.콜.운행시간분 / 60).toFixed(1)}시간</p>
-          <div><span>예상 실수령</span><strong>{원(candidate.콜.예상실수령원)}</strong></div>
+          <div><span>예상 순수익</span><strong>{원(candidate.콜.예상실수령원)}</strong></div>
           <div className="carrier-candidate-labels">{candidate.콜.태그.map((tag) => <span key={tag} className="is-tag">{tag}</span>)}</div>
         </article>
       ) : <div className="carrier-empty-call"><strong>추천 가능한 다음 콜이 없어요.</strong><p>현재 운행을 마치고 리포트로 이동할 수 있어요.</p></div>}
@@ -537,7 +537,7 @@ function ReportScreen({ calls }: { calls: 계산후보[] }) {
       <div className="carrier-report-check"><Icon name="check" size={28} /></div>
       <h1>오늘 운행을<br />완료했어요</h1>
       <p className="carrier-lead">실제로 선택한 {calls.length}개 콜의 운행 결과입니다.</p>
-      <div className="carrier-report-hero"><small>총 실수령</small><strong>{원(net)}</strong><span>완료 콜 {calls.length}건</span></div>
+      <div className="carrier-report-hero"><small>총 순수익</small><strong>{원(net)}</strong><span>완료 콜 {calls.length}건</span></div>
       <div className="carrier-report-grid">
         <div><Icon name="truck" size={20} /><small>적재거리</small><strong>{loadedKm.toFixed(1)}km</strong></div>
         <div><Icon name="route" size={20} /><small>공차거리</small><strong>{emptyKm.toFixed(1)}km</strong></div>
