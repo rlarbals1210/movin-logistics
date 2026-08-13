@@ -273,13 +273,7 @@ function ShipperScreen() {
           </div>
         </div>
         <div className="flex items-center gap-sm">
-          <button type="button" aria-label="알림" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container">
-            <span className="material-symbols-outlined text-on-surface" aria-hidden="true">notifications</span>
-          </button>
-          <button type="button" aria-label="설정" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container">
-            <span className="material-symbols-outlined text-on-surface" aria-hidden="true">settings</span>
-          </button>
-          <div className="ml-xs flex h-9 items-center justify-center rounded-full bg-on-secondary-fixed px-md text-label-sm font-black text-primary-fixed" aria-label="화주/주선사 프로필">화주/주선사</div>
+          <div className="flex h-9 items-center justify-center rounded-full bg-on-secondary-fixed px-md text-label-sm font-black text-primary-fixed" aria-label="화주/주선사 프로필">화주/주선사</div>
         </div>
       </nav>
 
