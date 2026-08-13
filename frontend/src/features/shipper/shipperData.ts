@@ -1,48 +1,56 @@
 import type { OperationLog, ScenarioResult, ShipperModelMetadata } from './shipperTypes'
 
-export const regionGroups = [
-  {
-    name: '수도권',
-    locations: ['서울 강서', '서울 송파', '인천 서구', '경기 화성', '경기 평택', '경기 이천', '경기 김포'],
-  },
-  {
-    name: '충청',
-    locations: ['대전 유성', '세종', '충북 청주', '충북 음성', '충남 천안', '충남 당진'],
-  },
-  {
-    name: '영남',
-    locations: ['부산 강서', '부산 신항', '대구 달성', '울산', '경북 구미', '경남 창원', '경남 김해'],
-  },
-  {
-    name: '호남',
-    locations: ['광주 광산', '전북 군산', '전북 익산', '전남 광양', '전남 목포'],
-  },
-  {
-    name: '강원·제주',
-    locations: ['강원 원주', '강원 춘천', '강원 강릉', '제주'],
-  },
+/**
+ * `ai/data/유연오더_가상데이터_v13.xlsx` → `참조_노선` 12행.
+ * MVP 등록 화면은 원본에 존재하는 노선만 선택할 수 있다.
+ */
+export const routeOptions = [
+  { routeId: 'R01', origin: '부산신항', destination: '김포' },
+  { routeId: 'R02', origin: '부산북항', destination: '화성' },
+  { routeId: 'R03', origin: '광양항', destination: '군산' },
+  { routeId: 'R04', origin: '창원공단', destination: '평택' },
+  { routeId: 'R05', origin: '인천남동', destination: '달성' },
+  { routeId: 'R06', origin: '안성물류', destination: '천안' },
+  { routeId: 'R07', origin: '대전유성', destination: '이천' },
+  { routeId: 'R08', origin: '의왕ICD', destination: '안산' },
+  { routeId: 'R09', origin: '평택항', destination: '청주' },
+  { routeId: 'R10', origin: '인천항', destination: '김해' },
+  { routeId: 'R11', origin: '부산신항', destination: '이천' },
+  { routeId: 'R12', origin: '대전유성', destination: '김해' },
 ] as const
 
+/** 원본 `콜등록이력.차종` 고유값 15종. */
 export const vehicleOptions = [
-  '1톤 카고',
-  '2.5톤 카고',
-  '5톤 카고',
-  '5톤 윙바디',
-  '11톤 윙바디',
-  '11톤 냉장·냉동탑',
-  '25톤 카고',
-  '25톤 트레일러',
+  '5t냉동',
+  '5t냉장',
+  '5t윙바디',
+  '5t카고',
+  '5t탑차',
+  '11t냉동',
+  '11t냉장',
+  '11t윙바디',
+  '11t카고',
+  '11t탑차',
+  '25t냉동',
+  '25t냉장',
+  '25t윙바디',
+  '25t카고',
+  '25t탑차',
 ] as const
 
+/** 원본 `콜등록이력.품목` 고유값 11종. */
 export const cargoOptions = [
+  '기계류',
+  '냉동수산',
   '냉동식품',
-  '신선식품',
   '생활용품',
-  '전자부품',
+  '섬유원단',
+  '식품가공',
   '자동차부품',
-  '산업자재',
-  '의류·섬유',
-  '가구·인테리어',
+  '전자부품',
+  '제과류',
+  '철강재',
+  '화학원료',
 ] as const
 
 export const scenarioResults: ScenarioResult[] = [
