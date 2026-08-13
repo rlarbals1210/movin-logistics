@@ -1,0 +1,11 @@
+{
+  "cut_date": "2026-10-26",
+  "base_day": "2026-06-01",
+  "period_days": 234,
+  "seed": 2026,
+  "n_shipper": 300,
+  "n_call": 12000,
+  "n_carrier": 11800,
+  "n_broker": 200,
+  "carrier_history": 151068
+}
