@@ -2,17 +2,46 @@
 
 실제 공급 풀이나 모델 파일을 읽지 못해도 같은 요청은 항상 같은 결과를 돌려준다.
 금액은 원 단위 정수, 거리는 km, 시간은 분, 확률은 0~1을 사용한다.
+
+`carrier_matches()`는 두 단계로 실데이터를 흡수한다.
+
+1. `predictions.json`의 `운송인_추천콜`이 7개 기본 필드(콜ID·출발지·도착지·
+   거리km·예측_운임·톨비·표준소요_h) **와** `복화가능성`까지 전부 갖추면
+   그 목록을 후보 풀로 쓴다. `복화가능성`은 AI 모델 예측값이라 아직 없다 —
+   추가되는 순간 이 검증을 통과해 자동으로 전환된다(코드 수정 불필요).
+2. 후보 풀과 무관하게, 매 요청마다 Kakao 지오코딩·길찾기(`app/kakao.py`)로
+   `emptyDistanceKm`(공차거리)을 실측값으로 덮어쓴다. 운송인 데모의 핵심
+   메시지("표면 운임 1위가 시간당 실수령으로는 꼴찌")가 전적으로 이 값에서
+   나오는데, 이건 모델 예측이 아니라 지금 바로 계산 가능한 값이기 때문이다.
+   실패하면(키 없음·API 오류) 해당 콜은 기존 고정값을 그대로 쓴다.
+
+거리를 실측으로 덮으면 그 거리에 물린 비용(`emptyCostWon`·
+`estimatedNetIncomeWon`)도 같이 재계산해야 앞뒤가 맞는다 — 안 그러면 "옛
+공차거리로 계산한 비용"이 "새 공차거리"와 나란히 뜬다. `_비용재계산()`이 이
+둘을 갱신한다. 사용하는 상수(유가 1,503원/L · 5톤 연비)는 이 시드 데이터가
+원래도 쓰던 값이다(예: CALL-1042의 emptyCostWon 2,684 = 12.5÷7.0×1,503) —
+`frontend/src/features/carrier/economics.ts`와 같은 값이고, 그쪽 상수 출처가
+아직 미확정이라 여기도 같은 전제를 상속한다. 상수가 바뀌면 여기도 같이 바꾼다.
 """
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
 from typing import Any
+
+from app.kakao import driving_distance_km, geocode
 
 PREDICTION_SOURCES = {
     "model": None,
     "supplyPool": "deterministicDemoSeed:carrier-v1",
     "calculations": "deterministicRules:cost-v1",
 }
+
+_경유_원_per_L = 1503
+_연비_적재_km_per_L = 5.5  # 5톤 기준. 시드 데이터의 fuelCostWon 역산값과 일치.
+_연비_공차_km_per_L = 7.0
 
 
 DEMO_CARRIER_CALLS: list[dict[str, Any]] = [
@@ -221,26 +250,191 @@ def route_key(call: dict[str, Any]) -> str:
     return f"{call['origin']['label']}->{call['destination']['label']}"
 
 
+# ── predictions.json 실데이터 흡수 ──────────────────────────────────────
+
+_PREDICTIONS_CANDIDATES = [
+    Path(__file__).resolve().parents[2] / "frontend" / "src" / "data" / "predictions.json",
+    Path(__file__).resolve().parent / "data" / "predictions.json",
+]
+
+_추천콜_필수_문자열_필드 = ("콜ID", "출발지", "도착지")
+_추천콜_필수_숫자_필드 = ("거리km", "예측_운임", "톨비", "표준소요_h")
+
+
+def _숫자인가(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _유효한_추천콜_행(행: Any) -> bool:
+    """기본 7개 필드 + 복화가능성까지 있어야 통과한다.
+
+    반쪽짜리(복화가능성 없는 행)를 서빙하느니 데모 고정값이 낫다 —
+    `fixtures.py`의 `_유효한_시나리오()`와 같은 판단이다.
+    """
+    if not isinstance(행, dict):
+        return False
+    if any(not isinstance(행.get(k), str) or not 행[k].strip() for k in _추천콜_필수_문자열_필드):
+        return False
+    if any(not _숫자인가(행.get(k)) for k in _추천콜_필수_숫자_필드):
+        return False
+    복화 = 행.get("복화가능성")
+    return _숫자인가(복화) and 0 <= 복화 <= 1
+
+
+def _태그와경고(공차km: float, 소요분: float, 복화가능성: float) -> tuple[list[str], list[str]]:
+    tags: list[str] = []
+    warnings: list[str] = []
+    if 공차km <= 30:
+        tags.append("공차 30km 이내")
+    else:
+        warnings.append("공차거리 주의")
+    if 소요분 <= 8 * 60:
+        tags.append("8시간 이내")
+    else:
+        warnings.append("8시간 초과")
+    if 복화가능성 >= 0.5:
+        tags.append("복화 가능성 높음")
+    elif 복화가능성 < 0.3:
+        warnings.append("복화 가능성 낮음")
+    return tags, warnings
+
+
+def _예측콜로(행: dict[str, Any], index: int) -> dict[str, Any]:
+    """predictions.json의 운송인_추천콜 한 행을 DEMO_CARRIER_CALLS와 같은 모양으로 바꾼다."""
+    적재km = float(행["거리km"])
+    소요분 = round(float(행["표준소요_h"]) * 60)
+    운임 = round(float(행["예측_운임"]))
+    톨비 = round(float(행["톨비"]))
+    유류비 = round(적재km / _연비_적재_km_per_L * _경유_원_per_L)
+    복화가능성 = float(행["복화가능성"])
+    tags, warnings = _태그와경고(0, 소요분, 복화가능성)
+
+    return {
+        "callId": str(행["콜ID"]),
+        "origin": {"label": str(행["출발지"]), "lat": None, "lng": None},
+        "destination": {"label": str(행["도착지"]), "lat": None, "lng": None},
+        # predictions.json에 상차 시각이 없다 — 등록 순서로 30분 간격을 두어 임시 배치한다.
+        "pickupAt": f"2026-08-13T{12 + index // 2:02d}:{(index % 2) * 30:02d}:00+09:00",
+        "loadedDistanceKm": 적재km,
+        # carrier_matches()가 매 요청마다 Kakao 실측값으로 덮는다. 실패하면 0 그대로 노출된다 —
+        # 임의 추정치를 넣는 것보다 "0km"가 눈에 띄어서 낫다.
+        "emptyDistanceKm": 0.0,
+        "durationMinutes": 소요분,
+        "fareWon": 운임,
+        "tollWon": 톨비,
+        "fuelCostWon": 유류비,
+        "emptyCostWon": 0,
+        "estimatedNetIncomeWon": 운임 - 유류비 - 톨비,
+        "backhaulProbability": 복화가능성,
+        "tags": tags,
+        "warnings": warnings,
+        "recommended": False,
+    }
+
+
+def _predictions_경로들() -> list[Path]:
+    # fixtures.py의 경로 탐색과 같은 순서다 — Railway 는 backend/ 만 배포하므로
+    # 레포 상대경로가 안 잡히고, PREDICTIONS_PATH 환경변수로 위치를 대신 준다.
+    # (과거 실제로 이 경로를 안 맞춰서 배포본이 고정값을 서빙한 적이 있다.)
+    경로들 = []
+    환경변수 = os.getenv("PREDICTIONS_PATH", "").strip()
+    if 환경변수:
+        경로들.append(Path(환경변수).expanduser())
+    경로들.extend(_PREDICTIONS_CANDIDATES)
+    return 경로들
+
+
+def _실데이터_추천콜_로드() -> list[dict[str, Any]] | None:
+    for 경로 in _predictions_경로들():
+        try:
+            데이터 = json.loads(경로.read_bytes())
+        except (OSError, ValueError):
+            continue
+        행목록 = 데이터.get("운송인_추천콜") if isinstance(데이터, dict) else None
+        if not isinstance(행목록, list) or not 행목록 or not all(_유효한_추천콜_행(행) for 행 in 행목록):
+            continue
+        return [_예측콜로(행, i) for i, 행 in enumerate(행목록)]
+    return None
+
+
+_REAL_CALLS = _실데이터_추천콜_로드()
+if _REAL_CALLS:
+    PREDICTION_SOURCES["supplyPool"] = "predictions.json"
+
+
+def _비용재계산(call: dict[str, Any], 공차km: float) -> dict[str, Any]:
+    """emptyDistanceKm을 실측값으로 바꿀 때 관련 필드를 같이 갱신한다.
+
+    안 그러면 "옛 공차거리로 계산한 비용"이 "새 공차거리"와 나란히 뜬다.
+    """
+    공차비 = round(공차km / _연비_공차_km_per_L * _경유_원_per_L)
+    실수령 = call["fareWon"] - call["fuelCostWon"] - 공차비 - call["tollWon"]
+    # durationMinutes(적재 구간 소요)는 이 계산과 무관해 건드리지 않는다 — 공차 이동
+    # 소요시간 환산은 프론트 economics.ts가 이미 자기 상수(50km/h)로 하고 있다.
+    tags, warnings = _태그와경고(공차km, call["durationMinutes"], call["backhaulProbability"])
+    return {
+        **call,
+        "emptyDistanceKm": 공차km,
+        "emptyCostWon": 공차비,
+        "estimatedNetIncomeWon": 실수령,
+        "tags": tags,
+        "warnings": warnings,
+    }
+
+
+def _실측_공차거리_적용(calls: list[dict[str, Any]], reference_location: str | None) -> list[dict[str, Any]]:
+    """기준 위치(현재 위치 또는 선호 권역) → 각 콜 출발지의 실도로거리로 emptyDistanceKm을 덮는다.
+
+    지오코딩·길찾기가 실패하면(키 없음·API 오류) 해당 콜은 원래 값 그대로 남는다 —
+    콜 단위 폴백이라 하나가 실패해도 나머지 화면은 정상이다.
+    """
+    reference_coord = geocode(reference_location) if reference_location else None
+
+    updated: list[dict[str, Any]] = []
+    for call in calls:
+        next_call = call
+        origin_coord = geocode(call["origin"]["label"])
+        dest_coord = geocode(call["destination"]["label"])
+
+        if origin_coord is not None:
+            next_call = {**next_call, "origin": {**next_call["origin"], "lat": origin_coord[0], "lng": origin_coord[1]}}
+        if dest_coord is not None:
+            next_call = {**next_call, "destination": {**next_call["destination"], "lat": dest_coord[0], "lng": dest_coord[1]}}
+
+        if reference_coord is not None and origin_coord is not None:
+            공차km = driving_distance_km(reference_coord, origin_coord)
+            if 공차km is not None:
+                next_call = _비용재계산(next_call, 공차km)
+
+        updated.append(next_call)
+    return updated
+
+
 def carrier_matches(
     *,
     current_location: str | None,
     exclude_call_ids: set[str],
     exclude_route_keys: set[str],
+    reference_location: str | None = None,
 ) -> list[dict[str, Any]]:
-    """현재 위치와 제외 목록을 반영해 최대 3건을 결정론적으로 반환한다."""
+    """현재 위치와 제외 목록을 반영해 최대 3건을 결정론적으로 반환한다.
+
+    `reference_location`은 공차거리 실측 계산의 기준점이다. 보통 `current_location`과
+    같지만, 아직 운행 전이라 현재 위치가 없는 첫 진입에서는 선호 권역으로 대신한다
+    (main.py가 결정해서 넘긴다 — 여기는 순수하게 받은 값만 쓴다).
+    """
+    base_calls = _REAL_CALLS or DEMO_CARRIER_CALLS
     candidates = [
         call
-        for call in DEMO_CARRIER_CALLS
+        for call in base_calls
         if call["callId"] not in exclude_call_ids and route_key(call) not in exclude_route_keys
     ]
+    candidates = _실측_공차거리_적용(candidates, reference_location or current_location)
 
     if current_location:
         exact = [call for call in candidates if call["origin"]["label"] == current_location]
         nearby = [call for call in candidates if call not in exact]
         candidates = exact + sorted(nearby, key=lambda item: (item["emptyDistanceKm"], item["callId"]))
-    else:
-        initial_ids = {"CALL-1042", "CALL-1113", "CALL-1087"}
-        candidates = [call for call in candidates if call["callId"] in initial_ids]
 
     result: list[dict[str, Any]] = []
     for index, call in enumerate(candidates[:3]):
