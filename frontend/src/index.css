@@ -1904,7 +1904,9 @@ textarea:focus-visible {
   .carrier-sticky-action button,
   .carrier-toast,
   .carrier-drawer-layer,
-  .carrier-drawer {
+  .carrier-drawer,
+  .carrier-candidate-alert,
+  .carrier-loading-list span {
     animation: none;
     transition: none;
   }
