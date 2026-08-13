@@ -302,7 +302,7 @@ function DecisionDialog({
             />
             <ToggleRow
               label="상차일 하루 연기"
-              description="24시간 시간창 원본 행과 비교합니다."
+              description="상차 가능 범위를 다음 날까지 넓혀 24시간 조건의 차주 수·예상 운임·배차시간·유찰 확률과 비교합니다."
               checked={options.allowDateDelay}
               onChange={(allowDateDelay) => onOptionsChange({ ...options, allowDateDelay, relaxedWindowMinutes: allowDateDelay ? 1440 : getNextRelaxedWindow(current.windowMinutes) })}
             />
@@ -521,7 +521,7 @@ function ConditionComparison({ form, scenarios, modelMetadata, options, onOption
           />
           <ToggleRow
             label="상차일 하루 연기"
-            description="24시간 시간창 조합을 조정안으로 사용합니다."
+            description="상차 가능 범위를 다음 날까지 넓혀 24시간 조건의 차주 수·예상 운임·배차시간·유찰 확률과 비교합니다."
             checked={options.allowDateDelay}
             onChange={(allowDateDelay) => onOptionsChange({ ...options, allowDateDelay, relaxedWindowMinutes: allowDateDelay ? 1440 : getNextRelaxedWindow(current.windowMinutes) })}
           />
