@@ -182,6 +182,9 @@ def api_match_carrier(
         current_location=currentLocation,
         exclude_call_ids=set(excludeCallIds),
         exclude_route_keys=set(excludeRouteKeys),
+        # 아직 운행 전이라 현재 위치가 없으면(첫 진입) 선호 권역을 공차거리 계산
+        # 기준점으로 대신 쓴다. 세부지역이 더 구체적이라 있으면 그쪽을 우선한다.
+        reference_location=currentLocation or subregion or region,
     )
     return {
         "carrierId": carrier_id,
